@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Odd Clip Out</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,800&family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap">
+<style>
+/* Layout: one centered "stage" card that swaps between Join → Lobby → Round screens; seats laid out as an 8-slot grid. */
+:root{
+  --bg:#dfe9f5; --panel:#ffffff; --ink:#14213d; --muted:#5b6b86; --line:#c5d3e6;
+  --accent:#ffd23f; --accent-ink:#14213d; --live:#e63946; --ok:#1f8a5b;
+  --seat:#eef3fa;
+  --display:"Bricolage Grotesque",ui-sans-serif,system-ui,sans-serif;
+  --body:"Figtree",ui-sans-serif,system-ui,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0e1626; --panel:#16213a; --ink:#e8eefb; --muted:#93a3c2; --line:#2a3a5c;
+  --accent:#ffd23f; --accent-ink:#14213d; --live:#ff5a66; --ok:#4cc38a; --seat:#1c2a47; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0e1626; --panel:#16213a; --ink:#e8eefb; --muted:#93a3c2; --line:#2a3a5c;
+  --accent:#ffd23f; --accent-ink:#14213d; --live:#ff5a66; --ok:#4cc38a; --seat:#1c2a47; color-scheme:dark}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.5;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:32px 48px}
+.wrap{max-width:760px;margin:0 auto;display:flex;flex-direction:column;gap:20px}
+header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.logo{font-family:var(--display);font-weight:800;font-size:clamp(28px,6vw,40px);letter-spacing:-.02em;line-height:1;margin:0}
+.logo span{background:var(--accent);color:var(--accent-ink);padding:0 .18em;border-radius:6px}
+.onair{display:inline-flex;align-items:center;gap:8px;font-family:var(--mono);font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.dot{width:10px;height:10px;border-radius:50%;background:var(--muted)}
+.onair.live .dot{background:var(--live);box-shadow:0 0 0 4px color-mix(in srgb,var(--live) 25%,transparent)}
+.stage{background:var(--panel);border:2px solid var(--ink);border-radius:18px;box-shadow:6px 6px 0 var(--ink);padding:24px;display:flex;flex-direction:column;gap:20px}
+h2{font-family:var(--display);font-weight:800;font-size:26px;line-height:1.15;margin:0;text-wrap:balance}
+.sub{color:var(--muted);margin:0;max-width:60ch}
+label{font-weight:600;font-size:14px}
+.field{display:flex;flex-direction:column;gap:6px}
+input[type=text]{font:inherit;font-size:18px;padding:12px 14px;border:2px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);width:100%}
+input[type=text]:focus{outline:none;border-color:var(--ink)}
+.code-input{font-family:var(--mono);text-transform:uppercase;letter-spacing:.3em}
+.swatches{display:flex;gap:10px;flex-wrap:wrap}
+.sw{width:40px;height:40px;border-radius:50%;border:3px solid transparent;cursor:pointer;padding:0}
+.sw[aria-pressed=true]{border-color:var(--ink);transform:scale(1.08)}
+.row{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end}
+.row>.field{flex:1 1 200px;min-width:0}
+button{font:inherit;cursor:pointer}
+.btn{font-weight:700;font-size:16px;padding:12px 18px;border-radius:10px;border:2px solid var(--ink);background:var(--panel);color:var(--ink);box-shadow:3px 3px 0 var(--ink);transition:transform .08s,box-shadow .08s}
+.btn:hover:not(:disabled){transform:translate(-1px,-1px);box-shadow:4px 4px 0 var(--ink)}
+.btn:active:not(:disabled){transform:translate(2px,2px);box-shadow:1px 1px 0 var(--ink)}
+.btn.primary{background:var(--accent);color:var(--accent-ink)}
+.btn.ghost{box-shadow:none;border-color:var(--line);color:var(--muted)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn:focus-visible,.sw:focus-visible{outline:3px solid var(--live);outline-offset:2px}
+.divider{display:flex;align-items:center;gap:12px;color:var(--muted);font-size:13px;text-transform:uppercase;letter-spacing:.1em}
+.divider::before,.divider::after{content:"";flex:1;height:2px;background:var(--line)}
+.err{color:var(--live);font-weight:600;margin:0;min-height:1.5em}
+
+.codebar{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;background:var(--seat);border-radius:12px;padding:14px 16px}
+.codebar .k{font-size:12px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);font-weight:600}
+.code{font-family:var(--mono);font-weight:700;font-size:34px;letter-spacing:.25em;line-height:1}
+.seats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+@media (max-width:560px){.seats{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.seat{border:2px dashed var(--line);border-radius:14px;padding:14px 10px;display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;min-height:150px;justify-content:center;background:var(--seat)}
+.seat.filled{border-style:solid;border-color:var(--ink);background:var(--panel)}
+.av{width:56px;height:56px;border-radius:50%;display:grid;place-items:center;font-family:var(--display);font-weight:800;font-size:24px;color:#14213d;border:2px solid var(--ink)}
+.nm{font-weight:700;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tags{display:flex;gap:4px;flex-wrap:wrap;justify-content:center}
+.tag{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;padding:2px 7px;border-radius:99px;background:var(--seat);color:var(--muted)}
+.tag.ready{background:color-mix(in srgb,var(--ok) 18%,transparent);color:var(--ok)}
+.tag.host{background:var(--accent);color:var(--accent-ink)}
+.tag.you{background:var(--ink);color:var(--panel)}
+.empty{color:var(--muted);font-size:13px}
+.status{font-weight:600}
+.status.ok{color:var(--ok)}
+.actions{display:flex;gap:12px;flex-wrap:wrap;justify-content:space-between;align-items:center}
+.actions .grp{display:flex;gap:12px;flex-wrap:wrap}
+.note{font-size:13px;color:var(--muted);margin:0;border-left:3px solid var(--line);padding-left:10px}
+.how{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:0;padding:0;list-style:none;counter-reset:s}
+@media (max-width:560px){.how{grid-template-columns:1fr}}
+.how li{counter-increment:s;font-size:14px;color:var(--muted)}
+.how li::before{content:counter(s);font-family:var(--display);font-weight:800;font-size:22px;color:var(--ink);display:block}
+.big{font-family:var(--display);font-weight:800;font-size:clamp(36px,9vw,64px);line-height:1;margin:0;text-align:center}
+.count{font-family:var(--mono);text-align:center;color:var(--muted)}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--panel);padding:10px 16px;border-radius:10px;font-weight:600}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1 class="logo">Odd <span>Clip</span> Out</h1>
+    <div class="onair" id="conn"><span class="dot"></span><span id="connText">Connecting…</span></div>
+  </header>
+
+  <section class="stage" id="scrJoin">
+    <div>
+      <h2>Start a party</h2>
+      <p class="sub">3–8 players react to the same video. One of you secretly gets a different clip. Drop a one-word hint each, then find the imposter.</p>
+    </div>
+    <div class="field">
+      <label for="nameIn">Your name</label>
+      <input type="text" id="nameIn" maxlength="16" placeholder="e.g. Caleb" autocomplete="off">
+    </div>
+    <div class="field">
+      <label>Your colour</label>
+      <div class="swatches" id="swatches"></div>
+    </div>
+    <button class="btn primary" id="createBtn">Create party</button>
+    <div class="divider">or join one</div>
+    <div class="row">
+      <div class="field">
+        <label for="codeIn">Party code</label>
+        <input type="text" id="codeIn" class="code-input" maxlength="4" placeholder="ABCD" autocomplete="off">
+      </div>
+      <button class="btn" id="joinBtn">Join</button>
+    </div>
+    <p class="err" id="joinErr" role="alert"></p>
+    <ol class="how">
+      <li>Host creates a party and shares the 4-letter code.</li>
+      <li>Everyone joins and hits Ready.</li>
+      <li>Host starts the round when 3–8 players are in.</li>
+    </ol>
+  </section>
+
+  <section class="stage" id="scrLobby" hidden>
+    <div class="codebar">
+      <div>
+        <div class="k">Party code</div>
+        <div class="code" id="codeOut">----</div>
+      </div>
+      <button class="btn" id="copyBtn">Copy code</button>
+    </div>
+    <div class="seats" id="seats"></div>
+    <p class="status" id="lobbyStatus"></p>
+    <p class="err" id="lobbyErr" role="alert"></p>
+    <div class="actions">
+      <div class="grp">
+        <button class="btn" id="readyBtn">I'm ready</button>
+        <button class="btn primary" id="startBtn" hidden>Start round</button>
+      </div>
+      <button class="btn ghost" id="leaveBtn">Leave</button>
+    </div>
+  </section>
+
+  <section class="stage" id="scrRound" hidden>
+    <p class="count">Round 1</p>
+    <p class="big">Lights, camera…</p>
+    <p class="sub" style="text-align:center;margin:0 auto">The party is locked in. Next build: each player gets their video, one gets the odd clip, then hints and the reveal.</p>
+    <div class="seats" id="roundSeats"></div>
+    <div class="actions"><span></span><button class="btn" id="backBtn">Back to lobby</button></div>
+  </section>
+</div>
+<div class="toast" id="toast" hidden></div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+const COLORS=["#ffd23f","#ff8fab","#7bdff2","#b8f28b","#c3a6ff","#ffb26b"];
+const $=id=>document.getElementById(id);
+let myColor=COLORS[0], myId=null, state=null, myReady=false;
+
+function toast(t){const el=$("toast");el.textContent=t;el.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>el.hidden=true,1800)}
+function show(id){for(const s of ["scrJoin","scrLobby","scrRound"])$(s).hidden=s!==id}
+
+COLORS.forEach((c,i)=>{const b=document.createElement("button");b.className="sw";b.style.background=c;b.setAttribute("aria-label","Colour "+(i+1));b.setAttribute("aria-pressed",i===0);
+  b.onclick=()=>{myColor=c;document.querySelectorAll(".sw").forEach(x=>x.setAttribute("aria-pressed",x===b))};$("swatches").append(b)});
+try{const n=localStorage.getItem("ocoName");if(n)$("nameIn").value=n}catch(e){}
+const urlCode=new URLSearchParams(location.search).get("code");if(urlCode)$("codeIn").value=urlCode.toUpperCase().slice(0,4);
+
+const socket=io();
+function setConn(on,t){$("conn").classList.toggle("live",on);$("connText").textContent=t}
+socket.on("connect",()=>setConn(true,"Online"));
+socket.on("disconnect",()=>{setConn(false,"Reconnecting…");if(state){state=null;show("scrJoin");$("joinErr").textContent="Lost connection to the party. Rejoin with the code."}});
+
+function name(){const n=$("nameIn").value.trim();try{localStorage.setItem("ocoName",n)}catch(e){}return n}
+function handle(res){if(res?.error){$("joinErr").textContent=res.error;return}$("joinErr").textContent="";myId=res.you;myReady=false}
+$("createBtn").onclick=()=>socket.emit("create",{name:name(),color:myColor},handle);
+$("joinBtn").onclick=()=>{const code=$("codeIn").value.trim().toUpperCase();if(!/^[A-Z]{4}$/.test(code)){$("joinErr").textContent="Party codes are 4 letters.";return}socket.emit("join",{name:name(),color:myColor,code},handle)};
+$("codeIn").addEventListener("keydown",e=>{if(e.key==="Enter")$("joinBtn").click()});
+$("readyBtn").onclick=()=>{myReady=!myReady;socket.emit("ready",myReady)};
+$("startBtn").onclick=()=>socket.emit("start",res=>{$("lobbyErr").textContent=res?.error||""});
+$("backBtn").onclick=()=>socket.emit("backToLobby");
+$("leaveBtn").onclick=()=>{socket.emit("leave");state=null;show("scrJoin")};
+$("copyBtn").onclick=async()=>{const link=location.origin+"/?code="+state.code;try{await navigator.clipboard.writeText(link);toast("Invite link copied")}catch(e){toast("Code: "+state.code)}};
+
+function seatEl(p,hostId){
+  const d=document.createElement("div");d.className="seat"+(p?" filled":"");
+  if(!p){const e=document.createElement("span");e.className="empty";e.textContent="Open seat";d.append(e);return d}
+  const av=document.createElement("div");av.className="av";av.style.background=p.color;av.textContent=(p.name[0]||"?").toUpperCase();
+  const nm=document.createElement("div");nm.className="nm";nm.textContent=p.name;
+  const tags=document.createElement("div");tags.className="tags";
+  const add=(t,c)=>{const s=document.createElement("span");s.className="tag "+c;s.textContent=t;tags.append(s)};
+  if(p.id===myId)add("You","you");if(p.id===hostId)add("Host","host");
+  add(p.ready?"Ready":"Not ready",p.ready?"ready":"");
+  d.append(av,nm,tags);return d;
+}
+
+socket.on("party",s=>{
+  state=s;
+  const me=s.players.find(p=>p.id===myId);if(!me)return;
+  myReady=me.ready;
+  const iAmHost=s.hostId===myId, host=s.players.find(p=>p.id===s.hostId);
+  $("codeOut").textContent=s.code;
+  if(s.phase==="round"){
+    const r=$("roundSeats");r.replaceChildren();s.players.forEach(p=>r.append(seatEl({...p,ready:true},s.hostId)));
+    $("backBtn").hidden=!iAmHost;show("scrRound");return;
+  }
+  const seats=$("seats");seats.replaceChildren();
+  for(let i=0;i<s.max;i++)seats.append(seatEl(s.players[i],s.hostId));
+  const n=s.players.length, ready=s.players.filter(p=>p.ready).length, st=$("lobbyStatus");
+  if(n<s.min){st.className="status";st.textContent=`${n}/${s.max} players. Need at least ${s.min} to start.`}
+  else if(ready<n){st.className="status";st.textContent=`${ready}/${n} ready. Waiting on everyone.`}
+  else{st.className="status ok";st.textContent=iAmHost?"Everyone's ready. Start when you like.":`Everyone's ready. Waiting for ${host?.name||"the host"} to start.`}
+  $("readyBtn").textContent=myReady?"Not ready":"I'm ready";
+  $("startBtn").hidden=!iAmHost;$("startBtn").disabled=!(n>=s.min&&ready===n);
+  $("lobbyErr").textContent="";
+  show("scrLobby");
+});
+</script>
+</body>
+</html>
