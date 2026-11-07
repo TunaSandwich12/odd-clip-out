@@ -380,10 +380,7 @@ async function ensurePlayer(clip){
       onReady:()=>{ytOk=true;const d=(clip.end||yt.getDuration()||0)-(clip.start||0);socket.emit("loaded",{duration:d});syncPlay()},
       onStateChange:e=>{
         if(e.data===1){$("cover").hidden=true}
-        if(e.data===0){
-          if(!reportedWatched){reportedWatched=true;socket.emit("watched",{})}
-          $("replayBtn").hidden=false;cover("Done. Watch again if you like.",false);
-        }
+        if(e.data===0)finishClip();
       },
       onError:e=>{
         const msg=e.data===101||e.data===150?"This clip doesn't allow playing on other sites. Tell the host so they can swap it.":"This clip couldn't load. Tell the host.";
@@ -397,6 +394,22 @@ function syncPlay(){
   try{yt.playVideo()}catch(e){}
   setTimeout(()=>{if(!yt||!ytOk)return;const s=yt.getPlayerState();if(s!==1&&s!==3&&s!==0)cover("Your browser paused the clip.",true)},2500);
 }
+// Everyone's clip stops at the same length (the shorter clip in the round), so nobody finishes early.
+function finishClip(){
+  if(!reportedWatched){reportedWatched=true;socket.emit("watched",{})}
+  doneCover();
+}
+function doneCover(){
+  if(!reportedWatched||!state)return;
+  cover(state.allWatched?"Everyone's done. Unmute and say your hint.":"Clip over. Stay muted until everyone's done.",false);
+}
+setInterval(()=>{
+  if(!yt||!ytOk||!localStarted||!state||state.phase!=="watch"||!state.clipLength)return;
+  try{
+    if(yt.getPlayerState()!==1)return;
+    if(yt.getCurrentTime()>=(curClip.start||0)+state.clipLength-0.1){yt.pauseVideo();finishClip()}
+  }catch(e){}
+},200);
 $("tapPlay").onclick=()=>{try{yt.playVideo()}catch(e){}$("tapPlay").hidden=true;$("coverText").textContent="Starting…"};
 $("replayBtn").onclick=()=>{if(!yt)return;try{yt.seekTo(curClip.start||0,true);yt.playVideo()}catch(e){}};
 $("toggleClip").onclick=()=>{clipOpen=!clipOpen;renderGame()};
@@ -442,8 +455,8 @@ function renderLobby(){
 
 function renderGame(){
   $("roundLbl").textContent=`Round ${state.round} of ${state.totalRounds}`;
-  const ps=state.players, allDone=state.playing&&ps.filter(p=>p.connected).every(p=>p.watched);
-  $("phaseLbl").textContent=allDone?"Say your hints":"Watch your clip";
+  const allDone=!!state.allWatched;
+  $("phaseLbl").textContent=allDone?"Unmute and say your hints":"Watch your clip";
   const rb=$("roleBanner");rb.classList.remove("imp");
   if(me.isImposter===true){rb.textContent="You're the imposter. Everyone else has a different clip. Blend in.";rb.classList.add("imp")}
   else if(me.isImposter===false)rb.textContent="You're not the imposter. Someone here watched a different clip.";
@@ -451,6 +464,8 @@ function renderGame(){
   if(me.clip)ensurePlayer(me.clip);
   if(!state.playing&&!localStarted)cover(ytOk?"Waiting for everyone to load…":"Loading your clip…",false);
   syncPlay();
+  doneCover();
+  $("replayBtn").hidden=!(allDone&&reportedWatched);
   renderWatch();
   $("hostBar").hidden=!me.isHost;
   $("startNowBtn").hidden=state.playing;
@@ -458,13 +473,16 @@ function renderGame(){
 }
 
 function renderWatch(){
-  const ps=state.players, done=ps.filter(p=>p.watched).length;
+  const ps=state.players, done=!!state.allWatched;
+  const len=state.clipLength?` Every clip runs for ${Math.round(state.clipLength)} seconds.`:"";
   $("watchStatus").textContent=!state.playing?`${ps.filter(p=>p.loaded).length}/${ps.length} loaded. The clips start together.`:
-    done===ps.length?(me.isHost?"Everyone's watched. Go round and each say one word about your clip, then press Reveal roles.":`Everyone's watched. Go round and each say one word about your clip. ${nameOf(state.hostId)} will reveal the roles.`):`${done}/${ps.length} finished watching.`;
+    done?(me.isHost?"Everyone's done. Unmute, go round and each say one word about your clip, then press Reveal roles.":`Everyone's done. Unmute, go round and each say one word about your clip. ${nameOf(state.hostId)} will reveal the roles.`):
+    `Watching. Stay muted until everyone's done.${len}`;
+  // No per-player "done" marks while watching: who finishes first would give the imposter away.
   $("watchChips").replaceChildren(...ps.map(p=>{
-    const c=el("span","chip"+(p.watched?" done":"")+(p.connected?"":" off"));
+    const c=el("span","chip"+(done?" done":"")+(p.connected?"":" off"));
     const m=el("span","mini");m.style.background=p.color;
-    c.append(m,document.createTextNode(p.name+(p.watched?" · done":state.playing?" · watching":p.loaded?" · ready":" · loading")));return c;
+    c.append(m,document.createTextNode(p.name+(done?" · done":state.playing?" · watching":p.loaded?" · ready":" · loading")));return c;
   }));
 }
 
