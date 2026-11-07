@@ -3,129 +3,123 @@
   "games": [
     {
       "name": "Game 1",
-      "note": "Instagram test: CGI gym pigeon vs. sitting in the snow in a ball gown. No music, about 10s each.",
       "clips": [
-        {
-          "url": "https://www.instagram.com/reel/DcajI9IOC6y/",
-          "seconds": 10
-        },
-        {
-          "url": "https://www.instagram.com/reel/Dd2RTN_sdJ5/",
-          "seconds": 11
-        }
-      ]
+        "clips/ssstik-io-1794092360207-60d3c4.mp4",
+        "clips/ssstik-io-1794092071392-c260ab.mp4"
+      ],
+      "note": "Instagram test: CGI gym pigeon vs. sitting in the snow in a ball gown. No music, about 10s each."
     },
     {
       "name": "Game 2",
-      "note": "Why are you running / dropped my croissant",
       "clips": [
-        "https://www.youtube.com/watch?v=tShoEO_gKjA",
-        "https://www.youtube.com/watch?v=ScSp4mGIrdE"
-      ]
+        "clips/ssstik-io-1794092915117-1-dc8ede.mp4",
+        "clips/ssstik-io-1794093439248-a4f135.mp4"
+      ],
+      "note": "Why are you running / dropped my croissant"
     },
     {
       "name": "Game 3",
-      "note": "What are those / two bros in a hot tub",
       "clips": [
         "https://www.youtube.com/watch?v=2NL2lRwlDbw",
         "https://www.youtube.com/watch?v=mydMr_qWqEs"
-      ]
+      ],
+      "note": "What are those / two bros in a hot tub"
     },
     {
       "name": "Game 4",
-      "note": "Hi welcome to Chili's / in me mum's car",
       "clips": [
         "https://www.youtube.com/watch?v=bs53JQTuEc0",
         "https://www.youtube.com/watch?v=3x1ngAD19IM"
-      ]
+      ],
+      "note": "Hi welcome to Chili's / in me mum's car"
     },
     {
       "name": "Game 5",
-      "note": "Still haven't found my berries / look at all those chickens",
       "clips": [
         "https://www.youtube.com/watch?v=kKLMryb-pWY",
         "https://www.youtube.com/watch?v=ECrA05A1gHc"
-      ]
+      ],
+      "note": "Still haven't found my berries / look at all those chickens"
     },
     {
       "name": "Game 6",
-      "note": "Trampoline fail / cat vs cucumber",
       "clips": [
         "https://www.youtube.com/watch?v=X1NzxS4T4wc",
         "https://www.youtube.com/watch?v=ZIQiiG6i09A"
-      ]
+      ],
+      "note": "Trampoline fail / cat vs cucumber"
     },
     {
       "name": "Game 7",
-      "note": "Heelflip fail / 79-block Minecraft clutch",
       "clips": [
         "https://www.youtube.com/watch?v=F97P3VLvqnI",
         "https://www.youtube.com/watch?v=Y8zQygm9lCQ"
-      ]
+      ],
+      "note": "Heelflip fail / 79-block Minecraft clutch"
     },
     {
       "name": "Game 8",
-      "note": "Cat misses a jump / Steph Curry trick shot",
       "clips": [
         "https://www.youtube.com/watch?v=VYzMPWf3xWA",
         "https://www.youtube.com/watch?v=tPKBXnfOqpM"
-      ]
+      ],
+      "note": "Cat misses a jump / Steph Curry trick shot"
     },
     {
       "name": "Game 9",
-      "note": "Minecraft boat clutch / Surprised Kitty",
       "clips": [
         "https://www.youtube.com/watch?v=aW4rtQnapWA",
         "https://www.youtube.com/watch?v=0Bmhjf0rKe8"
-      ]
+      ],
+      "note": "Minecraft boat clutch / Surprised Kitty"
     },
     {
       "name": "Game 10",
-      "note": "Dog reacts to magic / slow-mo water balloon",
       "clips": [
         "https://www.youtube.com/watch?v=rkSYJC2kO2o",
         "https://www.youtube.com/watch?v=mahf5fDtGXo"
-      ]
+      ],
+      "note": "Dog reacts to magic / slow-mo water balloon"
     },
     {
       "name": "Game 11",
-      "note": "Sneezing baby panda / kid's full-court shot",
       "clips": [
         "https://www.youtube.com/watch?v=93hq0YU3Gqk",
         "https://www.youtube.com/watch?v=x2PzvgGw5ro"
-      ]
+      ],
+      "note": "Sneezing baby panda / kid's full-court shot"
     },
     {
       "name": "Game 12",
-      "note": "Dog zoomies / backwards buzzer beater",
       "clips": [
         "https://www.youtube.com/watch?v=64X4cuAR2fI",
         "https://www.youtube.com/watch?v=EytV67B5ueQ"
-      ]
+      ],
+      "note": "Dog zoomies / backwards buzzer beater"
     },
     {
       "name": "Game 13",
-      "note": "Minecraft ladder clutch / elephant toothpaste",
       "clips": [
         "https://www.youtube.com/watch?v=rUW5CPPsFzQ",
         "https://www.youtube.com/watch?v=CpiavMnTEIg"
-      ]
+      ],
+      "note": "Minecraft ladder clutch / elephant toothpaste"
     },
     {
       "name": "Game 14",
-      "note": "Messi bottle flip / Bayashi Beef Wellington",
       "clips": [
         "https://www.youtube.com/watch?v=ACZik9lHZRY",
         "https://www.youtube.com/watch?v=Av1t8l4NZXA"
-      ]
+      ],
+      "note": "Messi bottle flip / Bayashi Beef Wellington"
     },
     {
       "name": "Game 15",
-      "note": "3D rug fools dogs / Kitten Surprise",
       "clips": [
         "https://www.youtube.com/watch?v=iuIT5wc-7AQ",
         "https://www.youtube.com/watch?v=YLDbGqJ2KYk"
-      ]
+      ],
+      "note": "3D rug fools dogs / Kitten Surprise"
     }
   ]
 }
