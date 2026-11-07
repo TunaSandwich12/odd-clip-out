@@ -143,6 +143,132 @@ async function checkClips() {
 const app = express();
 app.use(express.static(path.join(__dirname, "public")));
 
+// ---------- clip manager (/admin) ----------
+// Lets you change the built-in games from the website, including uploading videos. Changes apply straight away,
+// and are also saved to GitHub so they survive restarts (Render then redeploys with them).
+// Needs ADMIN_PASSWORD. To save to GitHub, also set GITHUB_TOKEN (a token that can write to the repo).
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "";
+const GITHUB_TOKEN = process.env.GITHUB_TOKEN || "";
+const GITHUB_REPO = process.env.GITHUB_REPO || "TunaSandwich12/odd-clip-out";
+const GITHUB_BRANCH = process.env.GITHUB_BRANCH || "main";
+const CLIPS_DIR = path.join(__dirname, "public", "clips");
+const GAMES_FILE = path.join(__dirname, "games.json");
+const pendingFiles = new Set(); // clips uploaded here but not yet saved to GitHub ("clips/x.mp4")
+let saving = false;
+
+function isAdmin(req) {
+  if (!ADMIN_PASSWORD) return false;
+  const a = Buffer.from(String(req.get("x-admin") || "")), b = Buffer.from(ADMIN_PASSWORD);
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
+}
+function adminGate(req, res, next) {
+  if (!ADMIN_PASSWORD) return res.status(503).json({ error: "The clip manager is off. Set ADMIN_PASSWORD on your host to turn it on." });
+  if (!isAdmin(req)) return res.status(401).json({ error: "Wrong admin password." });
+  next();
+}
+const fileClipsIn = (raw) => new Set((raw.games || []).flatMap((g) => (g.clips || []).map((c) => (typeof c === "string" ? c : c?.url || ""))).filter((u) => /^clips\//.test(u)));
+
+app.get("/admin/games", adminGate, (req, res) => {
+  let raw = { rounds: 5, games: [] };
+  try { raw = JSON.parse(fs.readFileSync(GAMES_FILE, "utf8")); } catch (e) {}
+  res.json({ ...raw, github: !!GITHUB_TOKEN, maxMb: MAX_UPLOAD_MB });
+});
+
+app.post("/admin/upload", adminGate, (req, res) => {
+  const ext = VIDEO_TYPES[String(req.get("content-type") || "").split(";")[0].toLowerCase()];
+  if (!ext) return res.status(415).json({ error: "Upload an MP4, WebM or MOV video." });
+  if (Number(req.get("content-length")) > MAX_UPLOAD_MB * 1024 * 1024) return res.status(413).json({ error: `Videos can be up to ${MAX_UPLOAD_MB} MB. Trim or compress it first.` });
+  const base = decodeURIComponent(String(req.get("x-name") || "clip")).replace(/\.[^.]*$/, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40) || "clip";
+  const rel = `clips/${base}-${crypto.randomBytes(3).toString("hex")}${ext}`;
+  fs.mkdirSync(CLIPS_DIR, { recursive: true });
+  const file = path.join(__dirname, "public", rel);
+  const out = fs.createWriteStream(file);
+  let got = 0, failed = false;
+  const fail = (code, error) => { if (failed) return; failed = true; out.destroy(); fs.rm(file, { force: true }, () => {}); if (!res.headersSent) res.status(code).json({ error }); };
+  req.on("data", (c) => { got += c.length; if (got > MAX_UPLOAD_MB * 1024 * 1024) fail(413, `Videos can be up to ${MAX_UPLOAD_MB} MB.`); });
+  req.on("aborted", () => fail(400, "Upload cancelled."));
+  req.pipe(out);
+  out.on("error", () => fail(500, "Couldn't save the video. Try again."));
+  out.on("finish", () => { if (failed) return; pendingFiles.add(rel); res.json({ ok: true, path: rel }); });
+});
+
+async function gh(method, url, body) {
+  const r = await fetch(`https://api.github.com/repos/${GITHUB_REPO}${url}`, {
+    method, body: body && JSON.stringify(body),
+    headers: { authorization: `Bearer ${GITHUB_TOKEN}`, accept: "application/vnd.github+json", "content-type": "application/json", "user-agent": "odd-clip-out" },
+  });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(`GitHub said ${r.status}: ${data.message || "unknown error"}`);
+  return data;
+}
+// One commit with the new games.json, any new videos, and removal of videos no game uses any more.
+async function commitToGitHub(json, added, removed) {
+  const ref = await gh("GET", `/git/ref/heads/${GITHUB_BRANCH}`);
+  const head = await gh("GET", `/git/commits/${ref.object.sha}`);
+  const tree = [{ path: "games.json", mode: "100644", type: "blob", content: json }];
+  for (const rel of added) {
+    const blob = await gh("POST", "/git/blobs", { content: fs.readFileSync(path.join(__dirname, "public", rel)).toString("base64"), encoding: "base64" });
+    tree.push({ path: "public/" + rel, mode: "100644", type: "blob", sha: blob.sha });
+  }
+  if (removed.length) {
+    const existing = new Set((await gh("GET", `/git/trees/${head.tree.sha}?recursive=1`)).tree.map((t) => t.path));
+    for (const rel of removed) if (existing.has("public/" + rel)) tree.push({ path: "public/" + rel, mode: "100644", type: "blob", sha: null });
+  }
+  const newTree = await gh("POST", "/git/trees", { base_tree: head.tree.sha, tree });
+  const commit = await gh("POST", "/git/commits", { message: "Update clips from the clip manager", tree: newTree.sha, parents: [ref.object.sha] });
+  await gh("PATCH", `/git/refs/heads/${GITHUB_BRANCH}`, { sha: commit.sha });
+}
+
+app.post("/admin/save", adminGate, express.json({ limit: "300kb" }), async (req, res) => {
+  if (saving) return res.status(409).json({ error: "Still saving the last change. Try again in a moment." });
+  const body = req.body || {};
+  const problems = [];
+  const games = (Array.isArray(body.games) ? body.games : []).slice(0, 200).map((g, i) => {
+    const name = String(g?.name || `Game ${i + 1}`).trim().slice(0, 40) || `Game ${i + 1}`;
+    const clips = (Array.isArray(g?.clips) ? g.clips : []).slice(0, 6).map((c) => {
+      if (typeof c === "string") c = { url: c };
+      const url = String(c?.url || "").trim().slice(0, 300);
+      const out = { url };
+      if (Number(c?.seconds) > 0) out.seconds = Math.min(600, Number(c.seconds));
+      if (Number.isFinite(c?.start)) out.start = c.start;
+      if (Number.isFinite(c?.end)) out.end = c.end;
+      return Object.keys(out).length === 1 ? url : out;
+    }).filter((c) => (typeof c === "string" ? c : c.url));
+    const parsed = clips.map(parseClip);
+    if (clips.length < 2) problems.push(`${name}: needs two clips.`);
+    else if (parsed.some((c) => !c)) problems.push(`${name}: one of the links isn't a YouTube or Instagram link or an uploaded video.`);
+    else if (new Set(parsed.map((c) => c.kind)).size > 1) problems.push(`${name}: use clips of the same kind (all YouTube, all Instagram or all uploads). Mixing them gives the imposter away.`);
+    else if (parsed.some((c) => c.kind === "instagram" && !(typeof clips[parsed.indexOf(c)] === "object" && clips[parsed.indexOf(c)].seconds))) problems.push(`${name}: add how many seconds long each Instagram reel is.`);
+    else if (parsed.some((c) => c.kind === "file" && !fs.existsSync(path.join(__dirname, "public", c.id)))) problems.push(`${name}: an uploaded video is missing. Upload it again.`);
+    const out = { name, clips };
+    if (g?.note) out.note = String(g.note).slice(0, 200);
+    return out;
+  });
+  if (problems.length) return res.status(400).json({ error: "Fix these games first.", problems });
+  if (!games.length) return res.status(400).json({ error: "Add at least one game." });
+  const raw = { rounds: Math.max(1, Math.min(20, Number(body.rounds) || 5)), games };
+  const json = JSON.stringify(raw, null, 2) + "\n";
+  let before = { games: [] };
+  try { before = JSON.parse(fs.readFileSync(GAMES_FILE, "utf8")); } catch (e) {}
+  const now = fileClipsIn(raw), was = fileClipsIn(before);
+  const added = [...now].filter((r) => pendingFiles.has(r));
+  const removed = [...was].filter((r) => !now.has(r));
+  saving = true;
+  try {
+    fs.writeFileSync(GAMES_FILE, json); // live straight away
+    checkClips();
+    if (!GITHUB_TOKEN) return res.json({ ok: true, github: false });
+    await commitToGitHub(json, added, removed);
+    added.forEach((r) => pendingFiles.delete(r));
+    res.json({ ok: true, github: true });
+  } catch (e) {
+    console.error("Saving clips to GitHub failed:", e.message);
+    res.json({ ok: true, github: false, githubError: e.message });
+  } finally {
+    saving = false;
+  }
+});
+
 // ---------- video uploads ----------
 // The host can upload their own videos for one party. They're kept on the server's disk only while the
 // party exists, then deleted. (On Render the disk is also wiped whenever the site restarts.)

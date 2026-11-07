@@ -31,6 +31,15 @@ When the server starts, it checks every clip with YouTube. If a clip is deleted,
 
 On Render: edit `games.json` on GitHub and commit. Render redeploys automatically in a few minutes.
 
+## Clip Manager (change the built-in games from the website)
+
+Go to `/admin.html` on your site to add, edit and delete the built-in games, including uploading videos from your computer. Set these on Render (Environment):
+
+- `ADMIN_PASSWORD`: the password for the Clip Manager. Keep it different from `ACCESS_PASSWORD`.
+- `GITHUB_TOKEN`: a GitHub token that can write to this repo (fine-grained token, this repo only, "Contents: Read and write"). With it, every save is committed to GitHub so it stays. Without it, changes are lost when the site restarts.
+
+After a save, Render redeploys in 2–3 minutes, which ends any game in progress, so save when nobody is playing. Uploaded videos go in `public/clips/`. Because the repo is public, anyone can download them from GitHub.
+
 ## Your own clips in the lobby
 
 The host can switch on **Use our own clips** in the lobby and add up to 10 rounds. Each round has two clips: a YouTube link, an Instagram reel link (with its length in seconds), or a video uploaded from their computer (MP4, WebM or MOV, up to 60 MB). Only the host sees the links. Uploaded videos are kept only while the party is open and are deleted when it ends (and whenever the server restarts).
