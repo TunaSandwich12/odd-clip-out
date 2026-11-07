@@ -148,6 +148,11 @@ button{font:inherit;cursor:pointer}
 .slot{position:absolute;inset:0}
 .cover{position:absolute;inset:0;display:grid;place-items:center;align-content:center;gap:14px;background:rgba(16,17,21,.84);color:#f1f2f5;text-align:center;padding:20px;font-weight:600}
 .cover .btn.primary{background:#fff;border-color:#fff;color:#15171c}
+/* Fullscreen: while clips play, the video covers the whole screen with a small timer on top */
+.hdr-right{display:flex;align-items:center;gap:12px}
+.fsbtn{height:36px;padding:0 14px;font-size:.875rem}
+body.theatre .clipbox,body.theatre .clipbox.vertical{position:fixed;inset:0;z-index:50;width:100vw;height:100vh;max-width:none;aspect-ratio:auto;border-radius:0}
+.hud{position:absolute;top:calc(16px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);z-index:3;background:rgba(16,17,21,.74);color:#f1f2f5;padding:8px 16px;border-radius:999px;font-weight:600;font-size:.9375rem;white-space:nowrap;pointer-events:none;font-variant-numeric:tabular-nums}
 .clipwrap.collapsed .clipbox,.clipwrap.collapsed .cliperr{display:none}
 .cliperr{margin:0;color:var(--err);font-weight:600;text-align:center}
 .cliprow{justify-content:center}
@@ -197,7 +202,10 @@ button{font:inherit;cursor:pointer}
 <div class="wrap">
   <header>
     <h1 class="logo"><span class="mark" aria-hidden="true"><i></i><i></i><i></i></span>Odd Clip Out</h1>
-    <div class="onair" id="conn"><span class="dot"></span><span id="connText">Connecting…</span></div>
+    <div class="hdr-right">
+      <button class="btn ghost fsbtn" id="fsBtn" type="button" hidden>Fullscreen</button>
+      <div class="onair" id="conn"><span class="dot"></span><span id="connText">Connecting…</span></div>
+    </div>
   </header>
 
   <!-- PASSWORD -->
@@ -286,6 +294,7 @@ button{font:inherit;cursor:pointer}
     <div class="clipwrap" id="clipWrap">
       <div class="clipbox" id="clipBox">
         <div class="slot" id="ytSlot"></div>
+        <div class="hud" id="hud" hidden></div>
         <div class="cover" id="cover">
           <span id="coverText">Loading your clip…</span>
           <button class="btn primary" id="tapPlay" hidden>Press play</button>
@@ -485,13 +494,35 @@ $("toggleClip").onclick=()=>{clipOpen=!clipOpen;renderGame()};
 socket.on("party",s=>{state=s;endsAt=s.endsIn?Date.now()+s.endsIn:0;render()});
 socket.on("me",m=>{me=m;render()});
 
+// ---------- fullscreen ----------
+const fsEl=()=>document.fullscreenElement||document.webkitFullscreenElement;
+const canFs=!!(document.fullscreenEnabled||document.webkitFullscreenEnabled);
+$("fsBtn").hidden=!canFs; // iPhones don't allow full screen for web pages
+$("fsBtn").onclick=async()=>{
+  try{
+    if(fsEl())await (document.exitFullscreen||document.webkitExitFullscreen).call(document);
+    else{const r=document.documentElement;await (r.requestFullscreen||r.webkitRequestFullscreen).call(r)}
+  }catch(e){toast("Your browser didn't allow full screen.")}
+};
+["fullscreenchange","webkitfullscreenchange"].forEach(ev=>document.addEventListener(ev,()=>{
+  $("fsBtn").textContent=fsEl()?"Exit fullscreen":"Fullscreen";updateTheatre();
+}));
+// In full screen, the clip covers the screen while it plays; the normal screen returns when it's time to unmute.
+function updateTheatre(){
+  const on=!!fsEl()&&state?.phase==="watch"&&!state.allWatched;
+  document.body.classList.toggle("theatre",on);
+  const h=$("hud");h.hidden=!on;
+  if(on)h.textContent=!state.playing?"Waiting for everyone to load…":endsAt?`Stay muted · unmute in ${fmt(endsAt-Date.now())}`:"Stay muted";
+}
+
 function render(){
-  if(!state||!me||!player(me.id))return;
+  if(!state||!me||!player(me.id)){updateTheatre();return}
   const ph=state.phase;
   if(ph==="lobby"){destroyPlayer();renderLobby();show("scrLobby")}
   else if(ph==="watch"){renderGame();show("scrGame")}
   else if(ph==="reveal"){destroyPlayer();renderReveal();show("scrReveal")}
   else if(ph==="final"){destroyPlayer();renderFinal();show("scrFinal")}
+  updateTheatre();
 }
 
 function seatEl(p){
@@ -511,7 +542,7 @@ function renderLobby(){
   const iAmHost=me.isHost, host=player(state.hostId);
   const k=$("knowsIn");k.checked=!!state.settings.imposterKnows;k.disabled=!iAmHost;
   $("knowsHelp").textContent=(iAmHost?"":"The host sets this. ")+"Off: nobody knows, not even the imposter. On: the imposter is told and has to bluff.";
-  $("roundsInfo").textContent=state.totalRounds?`${state.totalRounds} rounds per game. Each round uses a different set of clips.`:"No clips are set up yet. Add some to games.json.";
+  $("roundsInfo").textContent=state.totalRounds?`${state.totalRounds} rounds per game. Each round uses a different set of clips.`+(canFs?" Tip: press Fullscreen at the top so clips fill your screen.":""):"No clips are set up yet. Add some to games.json.";
   const probs=me.clipProblems||[];$("clipWarn").hidden=!probs.length;$("clipWarnList").replaceChildren(...probs.map(t=>el("li",null,t)));
   const n=state.players.length, ready=state.players.filter(p=>p.ready).length, st=$("lobbyStatus");
   if(n<state.min){st.className="status";st.textContent=`${n} of ${state.max} players. You need at least ${state.min} to start.`}
@@ -555,6 +586,7 @@ function renderWatch(){
     const m=el("span","mini");m.style.background=p.color;
     c.append(m,el("span",null,p.name),el("span","st",done?"done":state.playing?"watching":p.loaded?"ready":"loading"));return c;
   }));
+  updateTheatre();
 }
 
 let revKey=null;
