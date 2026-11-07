@@ -3,10 +3,16 @@
   "games": [
     {
       "name": "Game 1",
-      "note": "Road work ahead / screaming goat",
+      "note": "Instagram test: CGI gym pigeon vs. sitting in the snow in a ball gown. No music, about 10s each.",
       "clips": [
-        "https://www.youtube.com/watch?v=6AYv6rV3NXE",
-        "https://www.youtube.com/watch?v=rZP7kWOMPzI"
+        {
+          "url": "https://www.instagram.com/reel/DcajI9IOC6y/",
+          "seconds": 10
+        },
+        {
+          "url": "https://www.instagram.com/reel/Dd2RTN_sdJ5/",
+          "seconds": 11
+        }
       ]
     },
     {
