@@ -3,37 +3,122 @@
   "games": [
     {
       "name": "Game 1",
+      "note": "Trampoline fail / lightning blows up a tree",
       "clips": [
-        "https://www.youtube.com/shorts/6EUn7CLGbfs",
-        "https://www.youtube.com/shorts/WROMyJAJmp4"
+        "https://www.youtube.com/watch?v=X1NzxS4T4wc",
+        "https://www.youtube.com/watch?v=Xnyfwbm3Rzg"
       ]
     },
     {
       "name": "Game 2",
+      "note": "Cat misses a jump / MrBeast trick shot",
       "clips": [
-        "https://www.youtube.com/shorts/bwyw0OqTt_4",
-        "https://www.youtube.com/shorts/MBEs8_wGZo8"
+        "https://www.youtube.com/watch?v=VYzMPWf3xWA",
+        "https://www.youtube.com/watch?v=B3MagYlHlhw"
       ]
     },
     {
       "name": "Game 3",
+      "note": "Bear bounces off a trampoline / slow-mo water balloon",
       "clips": [
-        "https://www.youtube.com/watch?v=_CQ_ehoRfsE",
-        "https://www.youtube.com/watch?v=HS5RsQV9g0w"
+        "https://www.youtube.com/watch?v=1YYzrnmwd_0",
+        "https://www.youtube.com/watch?v=mahf5fDtGXo"
       ]
     },
     {
       "name": "Game 4",
+      "note": "Dog zoomies / man nearly struck by lightning",
       "clips": [
-        "https://www.youtube.com/shorts/B4lYMw2ZIqY",
-        "https://www.youtube.com/shorts/8uiUz_IUkpo"
+        "https://www.youtube.com/watch?v=64X4cuAR2fI",
+        "https://www.youtube.com/watch?v=0PO-Zs1nooM"
       ]
     },
     {
       "name": "Game 5",
+      "note": "Screaming goat / water balloon to the face",
       "clips": [
-        "https://www.youtube.com/shorts/uFKeIMW8IxU",
-        "https://www.youtube.com/shorts/iKVCoUwcRbc"
+        "https://www.youtube.com/watch?v=rZP7kWOMPzI",
+        "https://www.youtube.com/watch?v=p3ajndHYnTM"
+      ]
+    },
+    {
+      "name": "Game 6",
+      "note": "Minecraft boat clutch / Steph Curry trick shot",
+      "clips": [
+        "https://www.youtube.com/watch?v=aW4rtQnapWA",
+        "https://www.youtube.com/watch?v=tPKBXnfOqpM"
+      ]
+    },
+    {
+      "name": "Game 7",
+      "note": "MoistCr1tikal jumpscared / 3D rug fools dogs",
+      "clips": [
+        "https://www.youtube.com/watch?v=l0TRuGoVlnY",
+        "https://www.youtube.com/watch?v=iuIT5wc-7AQ"
+      ]
+    },
+    {
+      "name": "Game 8",
+      "note": "Messi bottle flip / Bayashi Beef Wellington",
+      "clips": [
+        "https://www.youtube.com/watch?v=ACZik9lHZRY",
+        "https://www.youtube.com/watch?v=Av1t8l4NZXA"
+      ]
+    },
+    {
+      "name": "Game 9",
+      "note": "79-block Minecraft clutch / cat vs cucumber",
+      "clips": [
+        "https://www.youtube.com/watch?v=Y8zQygm9lCQ",
+        "https://www.youtube.com/watch?v=ZIQiiG6i09A"
+      ]
+    },
+    {
+      "name": "Game 10",
+      "note": "Minecraft ladder clutch / follow the red dot",
+      "clips": [
+        "https://www.youtube.com/watch?v=rUW5CPPsFzQ",
+        "https://www.youtube.com/watch?v=oo8tfJ2jz_Y"
+      ]
+    },
+    {
+      "name": "Game 11",
+      "note": "Kid's full-court shot / Relaxing Car Drive jumpscare",
+      "clips": [
+        "https://www.youtube.com/watch?v=x2PzvgGw5ro",
+        "https://www.youtube.com/watch?v=GMgsFZ4rkEI"
+      ]
+    },
+    {
+      "name": "Game 12",
+      "note": "Parkour runner / lightning hits a car",
+      "clips": [
+        "https://www.youtube.com/watch?v=8AHgBX4VO_M",
+        "https://www.youtube.com/watch?v=-0hE6gAcbvg"
+      ]
+    },
+    {
+      "name": "Game 13",
+      "note": "Elephant toothpaste / backwards buzzer beater",
+      "clips": [
+        "https://www.youtube.com/watch?v=CpiavMnTEIg",
+        "https://www.youtube.com/watch?v=EytV67B5ueQ"
+      ]
+    },
+    {
+      "name": "Game 14",
+      "note": "BMW M4 drift / dog reacts to magic",
+      "clips": [
+        "https://www.youtube.com/watch?v=p3gGMSokWAE",
+        "https://www.youtube.com/watch?v=rkSYJC2kO2o"
+      ]
+    },
+    {
+      "name": "Game 15",
+      "note": "Heelflip fail / Penguinz0 jumpscares Moist",
+      "clips": [
+        "https://www.youtube.com/watch?v=F97P3VLvqnI",
+        "https://www.youtube.com/watch?v=CN1h-ETDjxo"
       ]
     }
   ]
