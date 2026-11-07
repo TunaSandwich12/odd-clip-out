@@ -3,157 +3,213 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#eef0f3" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#101115" media="(prefers-color-scheme: dark)">
 <title>Odd Clip Out</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,800&family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700;800&display=swap">
 <style>
-/* Layout: one centred stage card that swaps between Password → Join → Lobby → Round → Reveal → Final. */
-/* Layout: one centered "stage" card that swaps between Join → Lobby → Round screens; seats laid out as an 8-slot grid. */
+/* Direction: neutral, calm interface. The only colour comes from the players themselves,
+   so colour always means "a person". The one loud moment: the reveal floods with the imposter's colour. */
 :root{
-  --bg:#dfe9f5; --panel:#ffffff; --ink:#14213d; --muted:#5b6b86; --line:#c5d3e6;
-  --accent:#ffd23f; --accent-ink:#14213d; --live:#e63946; --ok:#1f8a5b;
-  --seat:#eef3fa;
-  --display:"Bricolage Grotesque",ui-sans-serif,system-ui,sans-serif;
-  --body:"Figtree",ui-sans-serif,system-ui,sans-serif;
-  --mono:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+  --bg:#eef0f3; --surface:#ffffff; --soft:#f4f5f7; --ink:#15171c; --muted:#5a606c;
+  --field:#858b97; --hair:#e3e5ea; --err:#c4231c; --ok:#1d7646;
+  --on-color:#15171c; /* text on player colours: all player colours are light in both modes */
+  --shadow:0 1px 2px rgba(16,17,21,.04),0 16px 40px -16px rgba(16,17,21,.16);
+  --font:"Schibsted Grotesk",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
 }
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
-  --bg:#0e1626; --panel:#16213a; --ink:#e8eefb; --muted:#93a3c2; --line:#2a3a5c;
-  --accent:#ffd23f; --accent-ink:#14213d; --live:#ff5a66; --ok:#4cc38a; --seat:#1c2a47; color-scheme:dark}}
+  --bg:#101115; --surface:#1a1b21; --soft:#23252c; --ink:#f1f2f5; --muted:#a4a9b4;
+  --field:#6e7380; --hair:#2a2c34; --err:#ff7a70; --ok:#5fd18f;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 20px 48px -16px rgba(0,0,0,.6); color-scheme:dark}}
 :root[data-theme="dark"]{
-  --bg:#0e1626; --panel:#16213a; --ink:#e8eefb; --muted:#93a3c2; --line:#2a3a5c;
-  --accent:#ffd23f; --accent-ink:#14213d; --live:#ff5a66; --ok:#4cc38a; --seat:#1c2a47; color-scheme:dark}
+  --bg:#101115; --surface:#1a1b21; --soft:#23252c; --ink:#f1f2f5; --muted:#a4a9b4;
+  --field:#6e7380; --hair:#2a2c34; --err:#ff7a70; --ok:#5fd18f;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 20px 48px -16px rgba(0,0,0,.6); color-scheme:dark}
 
 *{box-sizing:border-box}
 [hidden]{display:none!important}
-body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.5;
-  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:32px 48px}
-.wrap{max-width:760px;margin:0 auto;display:flex;flex-direction:column;gap:20px}
-header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
-.logo{font-family:var(--display);font-weight:800;font-size:clamp(28px,6vw,40px);letter-spacing:-.02em;line-height:1;margin:0}
-.logo span{background:var(--accent);color:var(--accent-ink);padding:0 .18em;border-radius:6px}
-.onair{display:inline-flex;align-items:center;gap:8px;font-family:var(--mono);font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
-.dot{width:10px;height:10px;border-radius:50%;background:var(--muted)}
-.onair.live .dot{background:var(--live);box-shadow:0 0 0 4px color-mix(in srgb,var(--live) 25%,transparent)}
-.stage{background:var(--panel);border:2px solid var(--ink);border-radius:18px;box-shadow:6px 6px 0 var(--ink);padding:24px;display:flex;flex-direction:column;gap:20px}
-h2{font-family:var(--display);font-weight:800;font-size:26px;line-height:1.15;margin:0;text-wrap:balance}
-.sub{color:var(--muted);margin:0;max-width:60ch}
-label{font-weight:600;font-size:14px}
-.field{display:flex;flex-direction:column;gap:6px}
-input[type=text],input[type=password]{font:inherit;font-size:18px;padding:12px 14px;border:2px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);width:100%}
-input[type=text]:focus,input[type=password]:focus{outline:none;border-color:var(--ink)}
-.code-input{font-family:var(--mono);text-transform:uppercase;letter-spacing:.3em}
-.swatches{display:flex;gap:10px;flex-wrap:wrap}
-.sw{width:40px;height:40px;border-radius:50%;border:3px solid transparent;cursor:pointer;padding:0}
-.sw[aria-pressed=true]{border-color:var(--ink);transform:scale(1.08)}
+html{background:var(--bg)}
+body{margin:0;min-height:100vh;background:var(--bg);color:var(--ink);font-family:var(--font);font-size:1rem;line-height:1.5;
+  -webkit-font-smoothing:antialiased;touch-action:manipulation;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  padding-top:max(20px,env(safe-area-inset-top,0px));padding-bottom:max(48px,env(safe-area-inset-bottom,0px))}
+.wrap{max-width:680px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+
+/* ---------- header ---------- */
+header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:4px 4px 8px}
+.logo{display:flex;align-items:center;gap:10px;margin:0;font-size:1.25rem;font-weight:800;letter-spacing:-.03em;line-height:1}
+.mark{display:inline-flex;align-items:flex-start;gap:3px;height:18px}
+.mark i{width:8px;height:8px;border-radius:50%;background:var(--ink)}
+.mark i:last-child{background:#ffd23f;margin-top:8px;box-shadow:inset 0 0 0 1px rgba(16,17,21,.15)}
+.onair{display:inline-flex;align-items:center;gap:8px;font-size:.875rem;font-weight:500;color:var(--muted)}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--field)}
+.onair.live .dot{background:var(--ok)}
+
+/* ---------- screen surface ---------- */
+.stage{background:var(--surface);border-radius:28px;box-shadow:var(--shadow);padding:28px 22px;display:flex;flex-direction:column;gap:24px}
+@media (min-width:600px){.stage{padding:40px}}
+h2{font-size:clamp(1.75rem,5.5vw,2.25rem);font-weight:800;letter-spacing:-.03em;line-height:1.08;margin:0;text-wrap:balance}
+.sub{color:var(--muted);margin:8px 0 0;max-width:56ch;text-wrap:pretty}
+.meta{font-size:.9375rem;font-weight:600;color:var(--muted);margin:0}
+h2:focus,.big:focus,.phase:focus{outline:none}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+
+/* ---------- forms ---------- */
+label{font-weight:600;font-size:.9375rem}
+.field{display:flex;flex-direction:column;gap:8px}
+input[type=text],input[type=password]{font:inherit;font-size:1.0625rem;height:52px;padding:0 16px;border:1.5px solid var(--field);border-radius:14px;background:var(--soft);color:var(--ink);width:100%;transition:border-color .15s,background-color .15s}
+input[type=text]:hover,input[type=password]:hover{border-color:var(--muted)}
+input[type=text]:focus-visible,input[type=password]:focus-visible{outline:3px solid color-mix(in srgb,var(--ink) 18%,transparent);outline-offset:2px;border-color:var(--ink);background:var(--surface)}
+input::placeholder{color:var(--muted)}
+.code-input{font-weight:700;text-transform:uppercase;letter-spacing:.24em}
+.swatches{display:flex;gap:12px;flex-wrap:wrap}
+.sw{width:40px;height:40px;border-radius:50%;border:0;cursor:pointer;padding:0;box-shadow:inset 0 0 0 1px rgba(16,17,21,.12);transition:transform .12s}
+.sw:hover{transform:scale(1.06)}
+.sw[aria-pressed=true]{box-shadow:inset 0 0 0 1px rgba(16,17,21,.12),0 0 0 3px var(--surface),0 0 0 5px var(--ink)}
 .row{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end}
 .row>.field{flex:1 1 200px;min-width:0}
-button{font:inherit;cursor:pointer}
-.btn{font-weight:700;font-size:16px;padding:12px 18px;border-radius:10px;border:2px solid var(--ink);background:var(--panel);color:var(--ink);box-shadow:3px 3px 0 var(--ink);transition:transform .08s,box-shadow .08s}
-.btn:hover:not(:disabled){transform:translate(-1px,-1px);box-shadow:4px 4px 0 var(--ink)}
-.btn:active:not(:disabled){transform:translate(2px,2px);box-shadow:1px 1px 0 var(--ink)}
-.btn.primary{background:var(--accent);color:var(--accent-ink)}
-.btn.ghost{box-shadow:none;border-color:var(--line);color:var(--muted)}
-.btn:disabled{opacity:.45;cursor:not-allowed}
-.btn:focus-visible,.sw:focus-visible{outline:3px solid var(--live);outline-offset:2px}
-.divider{display:flex;align-items:center;gap:12px;color:var(--muted);font-size:13px;text-transform:uppercase;letter-spacing:.1em}
-.divider::before,.divider::after{content:"";flex:1;height:2px;background:var(--line)}
-.err{color:var(--live);font-weight:600;margin:0;min-height:1.5em}
 
-.codebar{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;background:var(--seat);border-radius:12px;padding:14px 16px}
-.codebar .k{font-size:12px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);font-weight:600}
-.code{font-family:var(--mono);font-weight:700;font-size:34px;letter-spacing:.25em;line-height:1}
-.seats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
-@media (max-width:560px){.seats{grid-template-columns:repeat(2,minmax(0,1fr))}}
-.seat{border:2px dashed var(--line);border-radius:14px;padding:14px 10px;display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;min-height:150px;justify-content:center;background:var(--seat)}
-.seat.filled{border-style:solid;border-color:var(--ink);background:var(--panel)}
-.av{width:56px;height:56px;border-radius:50%;display:grid;place-items:center;font-family:var(--display);font-weight:800;font-size:24px;color:#14213d;border:2px solid var(--ink)}
-.nm{font-weight:700;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.tags{display:flex;gap:4px;flex-wrap:wrap;justify-content:center}
-.tag{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;padding:2px 7px;border-radius:99px;background:var(--seat);color:var(--muted)}
-.tag.ready{background:color-mix(in srgb,var(--ok) 18%,transparent);color:var(--ok)}
-.tag.host{background:var(--accent);color:var(--accent-ink)}
-.tag.you{background:var(--ink);color:var(--panel)}
-.tag.imp{background:var(--live);color:#fff;font-size:12px;padding:4px 10px}
-.tag.crew{font-size:12px;padding:4px 10px}
-.empty{color:var(--muted);font-size:13px}
-.status{font-weight:600}
+/* ---------- buttons ---------- */
+button{font:inherit;cursor:pointer}
+.btn{font-weight:700;font-size:1rem;height:48px;padding:0 22px;border-radius:999px;border:1.5px solid var(--hair);background:var(--surface);color:var(--ink);
+  transition:background-color .15s,border-color .15s,transform .08s;white-space:nowrap}
+.btn:hover:not(:disabled){border-color:var(--field)}
+.btn:active:not(:disabled){transform:scale(.98)}
+.btn.primary{background:var(--ink);border-color:var(--ink);color:var(--surface)}
+.btn.primary:hover:not(:disabled){background:color-mix(in srgb,var(--ink) 85%,var(--surface))}
+.btn.ghost{border-color:transparent;background:transparent;color:var(--muted);padding:0 14px}
+.btn.ghost:hover:not(:disabled){color:var(--ink);background:var(--soft)}
+.btn[aria-pressed=true]{background:color-mix(in srgb,var(--ok) 12%,var(--surface));border-color:var(--ok);color:var(--ok)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn:focus-visible,.sw:focus-visible,.switch input:focus-visible+.track{outline:3px solid var(--ink);outline-offset:3px}
+.btn.wide{width:100%}
+
+.divider{display:flex;align-items:center;gap:14px;color:var(--muted);font-size:.875rem;font-weight:500}
+.divider::before,.divider::after{content:"";flex:1;height:1px;background:var(--hair)}
+.err{color:var(--err);font-weight:600;margin:0;min-height:1.5em}
+.err:empty{min-height:0}
+.status{font-weight:600;margin:0}
 .status.ok{color:var(--ok)}
 .actions{display:flex;gap:12px;flex-wrap:wrap;justify-content:space-between;align-items:center}
-.actions .grp{display:flex;gap:12px;flex-wrap:wrap}
-.note{font-size:13px;color:var(--muted);margin:0;border-left:3px solid var(--line);padding-left:10px}
-.how{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:0;padding:0;list-style:none;counter-reset:s}
-@media (max-width:560px){.how{grid-template-columns:1fr}}
-.how li{counter-increment:s;font-size:14px;color:var(--muted)}
-.how li::before{content:counter(s);font-family:var(--display);font-weight:800;font-size:22px;color:var(--ink);display:block}
-.big{font-family:var(--display);font-weight:800;font-size:clamp(36px,9vw,64px);line-height:1;margin:0;text-align:center}
-.count{font-family:var(--mono);text-align:center;color:var(--muted)}
-.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--panel);padding:10px 16px;border-radius:10px;font-weight:600}
-@media (prefers-reduced-motion:reduce){*{transition:none!important}}
-.center{text-align:center}
-.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin:0}
-.roundbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
-.roundbar .phase{font-family:var(--display);font-weight:800;font-size:24px;line-height:1}
-.role{margin:0;padding:10px 14px;border-radius:10px;background:var(--seat);font-weight:600}
-.role.imp{background:var(--live);color:#fff}
-.clipwrap{display:flex;flex-direction:column;gap:10px;align-items:center}
-.clipbox{position:relative;background:#000;border-radius:14px;overflow:hidden;border:2px solid var(--ink);width:100%;aspect-ratio:16/9;max-width:100%}
-.clipbox.vertical{aspect-ratio:9/16;width:auto;height:min(62vh,560px)}
+.actions .grp{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+
+/* how to play: a real sequence, so numbered */
+.how{margin:0;padding:20px 0 0;list-style:none;counter-reset:s;display:grid;gap:12px;border-top:1px solid var(--hair)}
+.how li{counter-increment:s;display:grid;grid-template-columns:28px 1fr;gap:12px;align-items:start;color:var(--muted);font-size:.9375rem}
+.how li::before{content:counter(s);width:28px;height:28px;border-radius:50%;background:var(--soft);color:var(--ink);font-weight:700;font-size:.875rem;display:grid;place-items:center}
+
+/* ---------- lobby ---------- */
+.codebar{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.code{font-size:clamp(2.5rem,10vw,3.5rem);font-weight:800;letter-spacing:.06em;line-height:1;font-variant-numeric:tabular-nums}
+.seats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:20px 12px;padding:4px 0}
+@media (max-width:480px){.seats{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.seat{display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;min-width:0}
+.av{width:60px;height:60px;border-radius:50%;display:grid;place-items:center;font-weight:800;font-size:24px;letter-spacing:-.02em;color:var(--on-color);flex:none;
+  box-shadow:inset 0 0 0 1px rgba(16,17,21,.1)}
+.av.sm{width:36px;height:36px;font-size:15px}
+.av.xs{width:24px;height:24px;font-size:11px}
+.av.xl{width:88px;height:88px;font-size:36px;box-shadow:0 0 0 4px rgba(255,255,255,.55)}
+.seat .slot-empty{width:60px;height:60px;border-radius:50%;border:1.5px dashed var(--field);opacity:.6}
+.nm{font-weight:700;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tags{display:flex;gap:4px;flex-wrap:wrap;justify-content:center;margin-top:-2px}
+.tag{font-size:.75rem;font-weight:600;padding:2px 8px;border-radius:999px;background:var(--soft);color:var(--muted)}
+.tag.ready{background:color-mix(in srgb,var(--ok) 13%,var(--surface));color:var(--ok)}
+.tag.host,.tag.you{background:var(--ink);color:var(--surface)}
+.empty{font-size:.8125rem;color:var(--muted)}
+/* toggle switch built on a real checkbox */
+.switch{display:flex;gap:16px;align-items:flex-start;justify-content:space-between;padding:16px 18px;border-radius:18px;background:var(--soft);cursor:pointer}
+.switch b{display:block;font-weight:700}
+.switch span{font-size:.875rem;color:var(--muted)}
+.switch input{position:absolute;opacity:0;width:1px;height:1px}
+.track{flex:none;width:48px;height:28px;border-radius:999px;background:var(--field);position:relative;transition:background-color .2s;margin-top:2px}
+.track::after{content:"";position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:transform .2s}
+.switch input:checked+.track{background:var(--ok)}
+.switch input:checked+.track::after{transform:translateX(20px)}
+.switch input:disabled+.track{opacity:.5}
+.warn{margin:0;padding:14px 16px;border-radius:16px;background:color-mix(in srgb,var(--err) 9%,var(--surface));color:var(--ink);font-size:.9375rem}
+.warn b{color:var(--err)}
+.warn ul{margin:6px 0 0;padding-left:18px;overflow-wrap:anywhere}
+
+/* ---------- round ---------- */
+.roundbar{display:flex;flex-direction:column;gap:10px}
+.progress{display:flex;gap:6px}
+.progress i{flex:1;height:4px;border-radius:2px;background:var(--hair)}
+.progress i.done{background:var(--ink)}
+.progress i.now{background:linear-gradient(90deg,var(--ink) 50%,var(--hair) 50%)}
+.phase{font-size:clamp(1.75rem,5.5vw,2.25rem);font-weight:800;letter-spacing:-.03em;line-height:1.08}
+.role{margin:0;padding:12px 16px;border-radius:14px;background:var(--soft);font-weight:600}
+.role.imp{background:color-mix(in srgb,var(--err) 11%,var(--surface));color:var(--err)}
+.clipwrap{display:flex;flex-direction:column;gap:12px;align-items:center}
+.clipbox{position:relative;background:#000;border-radius:20px;overflow:hidden;width:100%;aspect-ratio:16/9;max-width:100%}
+.clipbox.vertical{aspect-ratio:9/16;width:auto;height:min(64vh,580px)}
 .clipbox iframe,.frame iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
 .slot{position:absolute;inset:0}
-.cover{position:absolute;inset:0;display:grid;place-items:center;align-content:center;gap:12px;background:rgba(10,16,30,.82);color:#fff;text-align:center;padding:16px;font-weight:600}
+.cover{position:absolute;inset:0;display:grid;place-items:center;align-content:center;gap:14px;background:rgba(16,17,21,.84);color:#f1f2f5;text-align:center;padding:20px;font-weight:600}
+.cover .btn.primary{background:#fff;border-color:#fff;color:#15171c}
 .clipwrap.collapsed .clipbox,.clipwrap.collapsed .cliperr{display:none}
-.cliperr{margin:0;color:var(--live);font-weight:600;text-align:center}
+.cliperr{margin:0;color:var(--err);font-weight:600;text-align:center}
 .cliprow{justify-content:center}
+#watchPanel{display:flex;flex-direction:column;gap:12px}
 .chips{display:flex;flex-wrap:wrap;gap:8px}
-.chip{display:inline-flex;align-items:center;gap:8px;padding:6px 12px 6px 6px;border-radius:99px;background:var(--seat);font-weight:600;font-size:14px}
-.chip .mini{width:24px;height:24px;border-radius:50%;border:2px solid var(--ink)}
-.chip.done{background:color-mix(in srgb,var(--ok) 18%,var(--panel));color:var(--ok)}
+.chip{display:inline-flex;align-items:center;gap:8px;padding:4px 12px 4px 4px;border-radius:999px;background:var(--soft);font-weight:600;font-size:.875rem}
+.chip .mini{width:24px;height:24px;border-radius:50%;box-shadow:inset 0 0 0 1px rgba(16,17,21,.12)}
+.chip .st{color:var(--muted);font-weight:500}
+.chip.done .st{color:var(--ok)}
 .chip.off{opacity:.5}
-.av.sm{width:34px;height:34px;font-size:15px;flex:none}
-.hostbar{border-top:2px dashed var(--line);padding-top:14px}
-.clips2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;align-items:start}
+.hostbar{border-top:1px solid var(--hair);padding-top:20px}
+.hostbar .meta{font-size:.875rem}
+
+/* ---------- reveal: the one loud moment ---------- */
+.verdict{--imp:#d9dce2;position:relative;border-radius:22px;background:var(--imp);color:var(--on-color);text-align:center;
+  padding:36px 20px 32px;display:flex;flex-direction:column;align-items:center;gap:6px;
+  animation:flood .7s cubic-bezier(.2,.8,.2,1) both}
+.verdict .meta{color:color-mix(in srgb,var(--on-color) 72%,transparent)}
+.verdict .av.xl{margin:10px 0 8px}
+.big{font-size:clamp(2.5rem,10vw,4.25rem);font-weight:800;letter-spacing:-.04em;line-height:1;margin:0;text-wrap:balance;overflow-wrap:anywhere}
+.verdict .lead{font-size:1.25rem;font-weight:700;margin:0}
+.verdict .sub{color:color-mix(in srgb,var(--on-color) 72%,transparent);margin-top:6px}
+@keyframes flood{from{clip-path:circle(0% at 50% 30%)}to{clip-path:circle(150% at 50% 30%)}}
+.verdict.plain{background:var(--soft);color:var(--ink);animation:none}
+.verdict.plain .meta,.verdict.plain .sub{color:var(--muted)}
+.clips2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;align-items:start}
 @media (max-width:560px){.clips2{grid-template-columns:1fr}}
-.clips2 figure{margin:0;display:flex;flex-direction:column;gap:8px;align-items:center;min-width:0}
-.clips2 figcaption{font-weight:700}
-.frame{position:relative;width:100%;aspect-ratio:16/9;background:#000;border-radius:12px;overflow:hidden;border:2px solid var(--ink)}
+.clips2 figure{margin:0;display:flex;flex-direction:column;gap:10px;align-items:center;min-width:0}
+.clips2 figcaption{align-self:stretch;font-weight:700;font-size:.9375rem}
+.frame{position:relative;width:100%;aspect-ratio:16/9;background:#000;border-radius:16px;overflow:hidden}
 .frame.vertical{aspect-ratio:9/16;width:min(100%,260px)}
-.verdict{text-align:center;display:flex;flex-direction:column;gap:8px;align-items:center}
-.verdict .big{font-size:clamp(30px,7vw,52px)}
-.rows{display:flex;flex-direction:column;gap:8px}
-.prow{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:12px;align-items:center;padding:10px 12px;border-radius:12px;background:var(--seat)}
-.prow.imp{outline:3px solid var(--live)}
-.prow .meta{min-width:0}
-.prow .meta b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.prow .meta span{font-size:14px;color:var(--muted);overflow-wrap:anywhere}
-.pts{font-family:var(--mono);font-weight:700;text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
-.pts small{display:block;color:var(--ok);font-size:12px}
-.rank{font-family:var(--display);font-weight:800;font-size:22px;width:1.6em;text-align:center}
-.warn{margin:0;padding:12px 14px;border-radius:10px;background:color-mix(in srgb,var(--live) 12%,var(--panel));border:2px solid var(--live);font-size:14px}
-.warn ul{margin:6px 0 0;padding-left:18px;overflow-wrap:anywhere}
-.setting{display:flex;gap:12px;align-items:flex-start;padding:12px 14px;border-radius:12px;background:var(--seat)}
-.setting input{width:22px;height:22px;margin:2px 0 0;accent-color:var(--ink);flex:none}
-.setting b{display:block}
-.setting span{font-size:14px;color:var(--muted)}
+.rows{display:flex;flex-direction:column}
+.prow{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:14px;align-items:center;padding:12px 0;border-top:1px solid var(--hair)}
+.prow:first-child{border-top:0}
+.prow .who{min-width:0}
+.prow .who b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.prow .who span{font-size:.875rem;color:var(--muted)}
+.verdict-tag{font-size:.8125rem;font-weight:700;padding:4px 10px;border-radius:999px;background:var(--soft);color:var(--muted);white-space:nowrap}
+.verdict-tag.imp{background:color-mix(in srgb,var(--err) 12%,var(--surface));color:var(--err)}
+.rank{width:36px;height:36px;border-radius:50%;background:var(--soft);display:grid;place-items:center;font-weight:700;font-variant-numeric:tabular-nums}
+
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--surface);padding:12px 18px;border-radius:999px;font-weight:600;box-shadow:var(--shadow)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
 </head>
 <body>
 <div class="wrap">
   <header>
-    <h1 class="logo">Odd <span>Clip</span> Out</h1>
+    <h1 class="logo"><span class="mark" aria-hidden="true"><i></i><i></i><i></i></span>Odd Clip Out</h1>
     <div class="onair" id="conn"><span class="dot"></span><span id="connText">Connecting…</span></div>
   </header>
 
   <!-- PASSWORD -->
   <section class="stage" id="scrGate" hidden>
     <div>
-      <h2>Enter the access password</h2>
+      <h2>Enter the password</h2>
       <p class="sub">This game is invite-only. Ask the host for the password.</p>
     </div>
     <form id="gateForm" class="row">
       <div class="field">
         <label for="passIn">Password</label>
-        <input type="password" id="passIn" autocomplete="current-password">
+        <input type="password" id="passIn" name="password" autocomplete="current-password">
       </div>
       <button class="btn primary" id="gateBtn" type="submit">Enter</button>
     </form>
@@ -163,23 +219,23 @@ button{font:inherit;cursor:pointer}
   <!-- JOIN -->
   <section class="stage" id="scrJoin" hidden>
     <div>
-      <h2>Start a party</h2>
-      <p class="sub">3–8 players watch a clip. One of you secretly gets a different one. Everyone says a one-word hint out loud, then the host reveals who the imposter was.</p>
+      <h2>Everyone watches a clip. One of you watches a different one.</h2>
+      <p class="sub">For 3 to 8 players on a call. Say one word about your clip, then find out who had the odd one.</p>
     </div>
     <div class="field">
       <label for="nameIn">Your name</label>
-      <input type="text" id="nameIn" maxlength="16" placeholder="SOCKS" autocomplete="off">
+      <input type="text" id="nameIn" name="nickname" maxlength="16" placeholder="Socks" autocomplete="off" spellcheck="false">
     </div>
     <div class="field">
-      <label>Your colour</label>
-      <div class="swatches" id="swatches"></div>
+      <label id="swLbl">Your colour</label>
+      <div class="swatches" id="swatches" role="group" aria-labelledby="swLbl"></div>
     </div>
-    <button class="btn primary" id="createBtn">Create party</button>
-    <div class="divider">or join one</div>
+    <button class="btn primary wide" id="createBtn">Create party</button>
+    <div class="divider">or join a friend</div>
     <div class="row">
       <div class="field">
         <label for="codeIn">Party code</label>
-        <input type="text" id="codeIn" class="code-input" maxlength="4" placeholder="ABCD" autocomplete="off">
+        <input type="text" id="codeIn" name="code" class="code-input" maxlength="4" placeholder="ABCD" autocomplete="off" spellcheck="false" autocapitalize="characters">
       </div>
       <button class="btn" id="joinBtn">Join</button>
     </div>
@@ -187,31 +243,32 @@ button{font:inherit;cursor:pointer}
     <ol class="how">
       <li>Watch your clip. One player's clip is different.</li>
       <li>Take turns saying one word about it out loud.</li>
-      <li>The host reveals the roles and both clips.</li>
+      <li>The host reveals who had the odd clip, and both clips.</li>
     </ol>
   </section>
 
   <!-- LOBBY -->
   <section class="stage" id="scrLobby" hidden>
+    <h2 class="sr-only">Lobby</h2>
     <div class="codebar">
       <div>
-        <div class="k">Party code</div>
+        <p class="meta">Party code</p>
         <div class="code" id="codeOut">----</div>
       </div>
       <button class="btn" id="copyBtn">Copy invite link</button>
     </div>
     <div class="seats" id="seats"></div>
-    <label class="setting" for="knowsIn">
-      <input type="checkbox" id="knowsIn">
+    <label class="switch" for="knowsIn">
       <div><b>Imposter knows they're the imposter</b><span id="knowsHelp">Off: nobody knows, not even the imposter. On: the imposter is told and has to bluff.</span></div>
+      <input type="checkbox" id="knowsIn" role="switch"><span class="track" aria-hidden="true"></span>
     </label>
     <p class="sub" id="roundsInfo"></p>
     <div class="warn" id="clipWarn" hidden><b>Some clips may not play.</b> Fix these in games.json:<ul id="clipWarnList"></ul></div>
-    <p class="status" id="lobbyStatus"></p>
+    <p class="status" id="lobbyStatus" role="status"></p>
     <p class="err" id="lobbyErr" role="alert"></p>
     <div class="actions">
       <div class="grp">
-        <button class="btn" id="readyBtn">I'm ready</button>
+        <button class="btn" id="readyBtn" aria-pressed="false">I'm ready</button>
         <button class="btn primary" id="startBtn" hidden>Start game</button>
       </div>
       <button class="btn ghost" id="leaveBtn">Leave</button>
@@ -221,10 +278,9 @@ button{font:inherit;cursor:pointer}
   <!-- ROUND: watch, then host reveals -->
   <section class="stage" id="scrGame" hidden>
     <div class="roundbar">
-      <div>
-        <p class="eyebrow" id="roundLbl">Round 1 of 5</p>
-        <div class="phase" id="phaseLbl">Watch</div>
-      </div>
+      <div class="progress" id="roundBar" aria-hidden="true"></div>
+      <p class="meta" id="roundLbl">Round 1 of 5</p>
+      <div class="phase" id="phaseLbl">Watch</div>
     </div>
     <p class="role" id="roleBanner"></p>
     <div class="clipwrap" id="clipWrap">
@@ -232,7 +288,7 @@ button{font:inherit;cursor:pointer}
         <div class="slot" id="ytSlot"></div>
         <div class="cover" id="cover">
           <span id="coverText">Loading your clip…</span>
-          <button class="btn primary" id="tapPlay" hidden>Tap to play</button>
+          <button class="btn primary" id="tapPlay" hidden>Press play</button>
         </div>
       </div>
       <p class="cliperr" id="clipErr" hidden></p>
@@ -248,7 +304,7 @@ button{font:inherit;cursor:pointer}
     </div>
 
     <div class="actions hostbar" id="hostBar" hidden>
-      <span class="eyebrow">Host controls</span>
+      <p class="meta">You're the host</p>
       <div class="grp">
         <button class="btn ghost" id="startNowBtn">Start the clips now</button>
         <button class="btn primary" id="revealBtn">Reveal roles</button>
@@ -258,14 +314,16 @@ button{font:inherit;cursor:pointer}
 
   <!-- REVEAL -->
   <section class="stage" id="scrReveal" hidden>
-    <div class="verdict">
-      <p class="eyebrow" id="revRound"></p>
+    <div class="verdict" id="verdictPanel">
+      <p class="meta" id="revRound"></p>
+      <div id="revAvatar"></div>
       <p class="big" id="revTitle"></p>
+      <p class="lead">was the imposter</p>
       <p class="sub" id="revSub"></p>
     </div>
     <div class="clips2">
-      <figure><figcaption>Everyone else watched</figcaption><div class="frame" id="revMain"></div></figure>
-      <figure><figcaption id="revImpCap">The imposter watched</figcaption><div class="frame" id="revImp"></div></figure>
+      <figure><figcaption>Everyone else's clip</figcaption><div class="frame" id="revMain"></div></figure>
+      <figure><figcaption id="revImpCap">The imposter's clip</figcaption><div class="frame" id="revImp"></div></figure>
     </div>
     <div class="rows" id="revRows"></div>
     <div class="actions">
@@ -276,10 +334,10 @@ button{font:inherit;cursor:pointer}
 
   <!-- FINAL -->
   <section class="stage" id="scrFinal" hidden>
-    <div class="verdict">
-      <p class="eyebrow">Game over</p>
-      <p class="big" id="finTitle">That's a wrap!</p>
-      <p class="sub">Here's who the imposter was each round.</p>
+    <div>
+      <p class="meta">Game over</p>
+      <p class="big" id="finTitle">That's a wrap</p>
+      <p class="sub">Here's who had the odd clip each round.</p>
     </div>
     <div class="rows" id="finRows"></div>
     <div class="actions">
@@ -291,27 +349,40 @@ button{font:inherit;cursor:pointer}
     </div>
   </section>
 </div>
-<div class="toast" id="toast" hidden></div>
+<div class="toast" id="toast" role="status" hidden></div>
+<div class="sr-only" id="announce" aria-live="polite"></div>
 
 <script src="https://www.youtube.com/iframe_api"></script>
 <script src="/socket.io/socket.io.js"></script>
 <script>
 const COLORS=["#ffd23f","#ff8fab","#7bdff2","#b8f28b","#c3a6ff","#ffb26b","#ff6b6b","#5eead4"];
+const COLOR_NAMES=["Yellow","Pink","Sky blue","Lime","Lilac","Orange","Coral","Teal"];
 const SCREENS=["scrGate","scrJoin","scrLobby","scrGame","scrReveal","scrFinal"];
 const $=id=>document.getElementById(id);
 let myColor=COLORS[0], state=null, me=null;
 
-function toast(t){const el=$("toast");el.textContent=t;el.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>el.hidden=true,2200)}
-function show(id){for(const s of SCREENS)$(s).hidden=s!==id}
+function toast(t){const el=$("toast");el.textContent=t;el.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>el.hidden=true,4000)}
+// Switch screens. When the screen actually changes, move focus to its heading so keyboard and screen-reader users land on the new content.
+let curScreen=null;
+function show(id){
+  for(const s of SCREENS)$(s).hidden=s!==id;
+  if(id===curScreen)return;
+  curScreen=id;
+  const h=$(id).querySelector("h2,.big,.phase");
+  if(h){h.tabIndex=-1;h.focus({preventScroll:true})}
+}
+// One-off announcement for screen readers (used for phase changes, not for the ticking timer).
+let lastAnnounced="";
+function announce(t){if(t===lastAnnounced)return;lastAnnounced=t;$("announce").textContent=t}
 function store(k,v){try{v==null?sessionStorage.removeItem(k):sessionStorage.setItem(k,JSON.stringify(v))}catch(e){}}
 function load(k){try{return JSON.parse(sessionStorage.getItem(k))}catch(e){return null}}
 const player=id=>state?.players.find(p=>p.id===id);
 const nameOf=id=>player(id)?.name||state?.result?.names?.[id]||"Someone";
-function avatar(p,small){const a=document.createElement("div");a.className="av"+(small?" sm":"");a.style.background=p?.color||"#ccc";a.textContent=(p?.name?.[0]||"?").toUpperCase();return a}
+function avatar(p,size){const a=document.createElement("div");a.className="av"+(size?" "+size:"");a.style.background=p?.color||"#d9dce2";a.textContent=(p?.name?.[0]||"?").toUpperCase();a.setAttribute("aria-hidden","true");return a}
 function el(tag,cls,text){const e=document.createElement(tag);if(cls)e.className=cls;if(text!=null)e.textContent=text;return e}
 
 // ---------- join form ----------
-COLORS.forEach((c,i)=>{const b=document.createElement("button");b.className="sw";b.style.background=c;b.setAttribute("aria-label","Colour "+(i+1));b.setAttribute("aria-pressed",i===0);
+COLORS.forEach((c,i)=>{const b=document.createElement("button");b.className="sw";b.style.background=c;b.setAttribute("aria-label",COLOR_NAMES[i]);b.setAttribute("aria-pressed",i===0);
   b.onclick=()=>{myColor=c;document.querySelectorAll(".sw").forEach(x=>x.setAttribute("aria-pressed",x===b))};$("swatches").append(b)});
 try{const n=localStorage.getItem("ocoName");if(n)$("nameIn").value=n}catch(e){}
 const urlCode=new URLSearchParams(location.search).get("code");if(urlCode)$("codeIn").value=urlCode.toUpperCase().slice(0,4);
@@ -425,9 +496,10 @@ function render(){
 
 function seatEl(p){
   const d=el("div","seat"+(p?" filled":""));
-  if(!p){d.append(el("span","empty","Open seat"));return d}
+  if(!p){const e=el("div","slot-empty");e.setAttribute("aria-hidden","true");d.append(e,el("span","empty","Open"));return d}
   const tags=el("div","tags");const add=(t,c)=>tags.append(el("span","tag "+c,t));
-  if(p.id===me.id)add("You","you");if(p.id===state.hostId)add("Host","host");
+  if(p.id===me.id)add("You","you");
+  if(p.id===state.hostId)add("Host","host");
   if(!p.connected)add("Away","");else add(p.ready?"Ready":"Not ready",p.ready?"ready":"");
   d.append(avatar(p),el("div","nm",p.name),tags);return d;
 }
@@ -439,24 +511,27 @@ function renderLobby(){
   const iAmHost=me.isHost, host=player(state.hostId);
   const k=$("knowsIn");k.checked=!!state.settings.imposterKnows;k.disabled=!iAmHost;
   $("knowsHelp").textContent=(iAmHost?"":"The host sets this. ")+"Off: nobody knows, not even the imposter. On: the imposter is told and has to bluff.";
-  $("roundsInfo").textContent=state.totalRounds?`${state.totalRounds} rounds per game. Each round uses a different set of clips. The host reveals the roles when everyone's ready.`:"No clips are set up yet. Add some to games.json.";
+  $("roundsInfo").textContent=state.totalRounds?`${state.totalRounds} rounds per game. Each round uses a different set of clips.`:"No clips are set up yet. Add some to games.json.";
   const probs=me.clipProblems||[];$("clipWarn").hidden=!probs.length;$("clipWarnList").replaceChildren(...probs.map(t=>el("li",null,t)));
   const n=state.players.length, ready=state.players.filter(p=>p.ready).length, st=$("lobbyStatus");
-  if(n<state.min){st.className="status";st.textContent=`${n}/${state.max} players. Need at least ${state.min} to start.`}
-  else if(ready<n){st.className="status";st.textContent=`${ready}/${n} ready. Waiting on everyone.`}
+  if(n<state.min){st.className="status";st.textContent=`${n} of ${state.max} players. You need at least ${state.min} to start.`}
+  else if(ready<n){st.className="status";st.textContent=`${ready} of ${n} ready. Waiting on everyone.`}
   else{st.className="status ok";st.textContent=iAmHost?"Everyone's ready. Start when you like.":`Everyone's ready. Waiting for ${host?.name||"the host"} to start.`}
-  $("readyBtn").textContent=player(me.id)?.ready?"Not ready":"I'm ready";
+  const amReady=!!player(me.id)?.ready;
+  $("readyBtn").textContent=amReady?"Ready ✓":"I'm ready";$("readyBtn").setAttribute("aria-pressed",amReady);
   $("startBtn").hidden=!iAmHost;$("startBtn").disabled=!(n>=state.min&&ready===n&&state.totalRounds>0);
 }
 
 function renderGame(){
   $("roundLbl").textContent=`Round ${state.round} of ${state.totalRounds}`;
+  $("roundBar").replaceChildren(...Array.from({length:state.totalRounds||0},(_,i)=>el("i",i+1<state.round?"done":i+1===state.round?"now":null)));
   const allDone=!!state.allWatched;
   $("phaseLbl").textContent=allDone?"Unmute and say your hints":"Watch your clip";
   const rb=$("roleBanner");rb.classList.remove("imp");
   if(me.isImposter===true){rb.textContent="You're the imposter. Everyone else has a different clip. Blend in.";rb.classList.add("imp")}
   else if(me.isImposter===false)rb.textContent="You're not the imposter. Someone here watched a different clip.";
   else rb.textContent="One player is watching a different clip. It might be you.";
+  announce(`Round ${state.round}. `+(allDone?"Everyone's done. Unmute and say your hints.":(state.playing?"Clips are playing. Stay muted. ":"Loading clips. ")+rb.textContent));
   if(me.clip)ensurePlayer(me.clip);
   if(!state.playing&&!localStarted)cover(ytOk?"Waiting for everyone to load…":"Loading your clip…",false);
   syncPlay();
@@ -471,43 +546,50 @@ function renderGame(){
 function renderWatch(){
   const ps=state.players, done=!!state.allWatched;
   const left=state.playing&&endsAt?` Unmute in ${fmt(endsAt-Date.now())}.`:"";
-  $("watchStatus").textContent=!state.playing?`${ps.filter(p=>p.loaded).length}/${ps.length} loaded. The clips start together.`:
+  $("watchStatus").textContent=!state.playing?`${ps.filter(p=>p.loaded).length} of ${ps.length} loaded. The clips start together.`:
     done?(me.isHost?"Everyone's done. Unmute, go round and each say one word about your clip, then press Reveal roles.":`Everyone's done. Unmute, go round and each say one word about your clip. ${nameOf(state.hostId)} will reveal the roles.`):
     `Watching. Stay muted until the timer runs out.${left}`;
   // No per-player "done" marks while watching: who finishes first would give the imposter away.
   $("watchChips").replaceChildren(...ps.map(p=>{
     const c=el("span","chip"+(done?" done":"")+(p.connected?"":" off"));
     const m=el("span","mini");m.style.background=p.color;
-    c.append(m,document.createTextNode(p.name+(done?" · done":state.playing?" · watching":p.loaded?" · ready":" · loading")));return c;
+    c.append(m,el("span",null,p.name),el("span","st",done?"done":state.playing?"watching":p.loaded?"ready":"loading"));return c;
   }));
 }
 
 let revKey=null;
-function frameFor(box,clip){
+function frameFor(box,clip,title){
   box.classList.toggle("vertical",!!clip.vertical);
   const f=document.createElement("iframe");
   const q=new URLSearchParams({rel:"0",playsinline:"1"});if(clip.start)q.set("start",clip.start);if(clip.end)q.set("end",clip.end);
-  f.src=`https://www.youtube.com/embed/${clip.id}?${q}`;f.allow="autoplay; encrypted-media; picture-in-picture";f.title="Clip";f.loading="lazy";
+  f.src=`https://www.youtube.com/embed/${clip.id}?${q}`;f.allow="autoplay; encrypted-media; picture-in-picture";f.title=title;f.loading="lazy";
   box.replaceChildren(f);
 }
 function roleRows(container){
   const r=state.result;
   container.replaceChildren(...state.players.map(p=>{
     const imp=p.id===r.imposterId;
-    const row=el("div","prow"+(imp?" imp":""));
-    const meta=el("div","meta");meta.append(el("b",null,p.name+(p.id===me.id?" (you)":"")),el("span",null,imp?"Watched the different clip":"Watched the same clip as everyone"));
-    row.append(avatar(p,true),meta,el("span","tag "+(imp?"imp":"crew"),imp?"Imposter":"Not imposter"));
+    const row=el("div","prow");
+    const who=el("div","who");who.append(el("b",null,p.name+(p.id===me.id?" (you)":"")),el("span",null,imp?"Watched the different clip":"Watched the same clip as everyone"));
+    row.append(avatar(p,"sm"),who,el("span","verdict-tag"+(imp?" imp":""),imp?"Imposter":"Not the imposter"));
     return row;
   }));
 }
 function renderReveal(){
-  const r=state.result;
-  $("revRound").textContent=`Round ${state.round} of ${state.totalRounds} · ${r.gameName}`;
-  $("revTitle").textContent=`${r.imposterName} was the imposter!`;
-  $("revSub").textContent=r.imposterLeft?"They left before the reveal.":"Did you spot them? Here are both clips.";
-  $("revImpCap").textContent=`${r.imposterName} watched`;
+  const r=state.result, imp=player(r.imposterId);
   const k=state.round+":"+r.mainClip.id;
-  if(revKey!==k){revKey=k;frameFor($("revMain"),r.mainClip);frameFor($("revImp"),r.impClip)}
+  $("revRound").textContent=`Round ${state.round} of ${state.totalRounds}: ${r.gameName}`;
+  $("revTitle").textContent=r.imposterName;
+  $("revSub").textContent=r.imposterLeft?"They left before the reveal.":"Did you spot them? Watch both clips below.";
+  $("revImpCap").textContent=`${r.imposterName}'s clip`;
+  const v=$("verdictPanel");
+  v.classList.toggle("plain",!imp);
+  v.style.setProperty("--imp",imp?.color||"#d9dce2");
+  $("revAvatar").replaceChildren(avatar(imp||{name:r.imposterName},"xl"));
+  if(revKey!==k){
+    revKey=k;frameFor($("revMain"),r.mainClip,"Everyone else's clip");frameFor($("revImp"),r.impClip,`${r.imposterName}'s clip`);
+    v.style.animation="none";void v.offsetWidth;v.style.animation=""; // replay the colour flood each round
+  }
   roleRows($("revRows"));
   $("nextBtn").hidden=!me.isHost;$("nextBtn").textContent=r.lastRound?"See the recap":"Next round";
   $("revWait").textContent=me.isHost?"":`Waiting for ${nameOf(state.hostId)} to continue.`;
@@ -515,8 +597,9 @@ function renderReveal(){
 function renderFinal(){
   $("finRows").replaceChildren(...(state.history||[]).map(h=>{
     const row=el("div","prow");
-    const meta=el("div","meta");meta.append(el("b",null,`${h.imposterName} was the imposter`),el("span",null,h.gameName));
-    row.append(el("span","rank",String(h.round)),meta,el("span",null,""));
+    const who=el("div","who");who.append(el("b",null,`${h.imposterName} was the imposter`),el("span",null,`Round ${h.round}: ${h.gameName}`));
+    const rank=el("span","rank",String(h.round));rank.setAttribute("aria-hidden","true");
+    row.append(rank,who,el("span",null,""));
     return row;
   }));
   $("lobbyBtn").hidden=!me.isHost;
