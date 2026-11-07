@@ -394,28 +394,24 @@ function syncPlay(){
   try{yt.playVideo()}catch(e){}
   setTimeout(()=>{if(!yt||!ytOk)return;const s=yt.getPlayerState();if(s!==1&&s!==3&&s!==0)cover("Your browser paused the clip.",true)},2500);
 }
-// Everyone's clip stops at the same length (the shorter clip in the round), so nobody finishes early.
+// Everyone watches their whole clip. A shared timer runs for the longest clip, then everyone unmutes together.
 function finishClip(){
   if(!reportedWatched){reportedWatched=true;socket.emit("watched",{})}
   doneCover();
 }
 function doneCover(){
   if(!reportedWatched||!state)return;
-  cover(state.allWatched?"Everyone's done. Unmute and say your hint.":"Clip over. Stay muted until everyone's done.",false);
+  cover(state.allWatched?"Time's up. Unmute and say your hint.":"Clip over. Stay muted until the timer runs out.",false);
 }
-setInterval(()=>{
-  if(!yt||!ytOk||!localStarted||!state||state.phase!=="watch"||!state.clipLength)return;
-  try{
-    if(yt.getPlayerState()!==1)return;
-    if(yt.getCurrentTime()>=(curClip.start||0)+state.clipLength-0.1){yt.pauseVideo();finishClip()}
-  }catch(e){}
-},200);
+let endsAt=0;
+const fmt=ms=>{const t=Math.max(0,Math.ceil(ms/1000));return Math.floor(t/60)+":"+String(t%60).padStart(2,"0")};
+setInterval(()=>{if(state?.phase==="watch"&&state.playing&&!state.allWatched)renderWatch()},250);
 $("tapPlay").onclick=()=>{try{yt.playVideo()}catch(e){}$("tapPlay").hidden=true;$("coverText").textContent="Starting…"};
 $("replayBtn").onclick=()=>{if(!yt)return;try{yt.seekTo(curClip.start||0,true);yt.playVideo()}catch(e){}};
 $("toggleClip").onclick=()=>{clipOpen=!clipOpen;renderGame()};
 
 // ---------- rendering ----------
-socket.on("party",s=>{state=s;render()});
+socket.on("party",s=>{state=s;endsAt=s.endsIn?Date.now()+s.endsIn:0;render()});
 socket.on("me",m=>{me=m;render()});
 
 function render(){
@@ -474,10 +470,10 @@ function renderGame(){
 
 function renderWatch(){
   const ps=state.players, done=!!state.allWatched;
-  const len=state.clipLength?` Every clip runs for ${Math.round(state.clipLength)} seconds.`:"";
+  const left=state.playing&&endsAt?` Unmute in ${fmt(endsAt-Date.now())}.`:"";
   $("watchStatus").textContent=!state.playing?`${ps.filter(p=>p.loaded).length}/${ps.length} loaded. The clips start together.`:
     done?(me.isHost?"Everyone's done. Unmute, go round and each say one word about your clip, then press Reveal roles.":`Everyone's done. Unmute, go round and each say one word about your clip. ${nameOf(state.hostId)} will reveal the roles.`):
-    `Watching. Stay muted until everyone's done.${len}`;
+    `Watching. Stay muted until the timer runs out.${left}`;
   // No per-player "done" marks while watching: who finishes first would give the imposter away.
   $("watchChips").replaceChildren(...ps.map(p=>{
     const c=el("span","chip"+(done?" done":"")+(p.connected?"":" off"));
