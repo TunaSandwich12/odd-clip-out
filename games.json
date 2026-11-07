@@ -1,0 +1,40 @@
+{
+  "rounds": 5,
+  "games": [
+    {
+      "name": "Game 1",
+      "clips": [
+        "https://www.youtube.com/shorts/6EUn7CLGbfs",
+        "https://www.youtube.com/shorts/WROMyJAJmp4"
+      ]
+    },
+    {
+      "name": "Game 2",
+      "clips": [
+        "https://www.youtube.com/shorts/bwyw0OqTt_4",
+        "https://www.youtube.com/shorts/MBEs8_wGZo8"
+      ]
+    },
+    {
+      "name": "Game 3",
+      "clips": [
+        "https://www.youtube.com/watch?v=_CQ_ehoRfsE",
+        "https://www.youtube.com/watch?v=HS5RsQV9g0w"
+      ]
+    },
+    {
+      "name": "Game 4",
+      "clips": [
+        "https://www.youtube.com/shorts/B4lYMw2ZIqY",
+        "https://www.youtube.com/shorts/8uiUz_IUkpo"
+      ]
+    },
+    {
+      "name": "Game 5",
+      "clips": [
+        "https://www.youtube.com/shorts/uFKeIMW8IxU",
+        "https://www.youtube.com/shorts/iKVCoUwcRbc"
+      ]
+    }
+  ]
+}

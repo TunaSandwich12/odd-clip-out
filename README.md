@@ -1,39 +1,48 @@
-# Odd Clip Out — party lobby prototype
+# Odd Clip Out
 
-Players create or join a party with a 4-letter code. 3–8 players, everyone hits Ready, the host starts the round.
+3–8 players each watch a clip. One player secretly gets a different clip. Players say a one-word hint out loud (on your call or stream), then the host presses **Reveal roles** to show who the imposter was and both clips. There are no timers: the host moves things along. A game is 5 rounds, with a recap at the end.
 
-## Run it
+## Adding or changing clips
 
-1. Install Node.js (LTS) from https://nodejs.org if you don't have it.
-2. Open a terminal in this folder and run:
+All clips live in `games.json`. Each game is one round's set of clips:
 
-   ```
-   npm install
-   npm start
-   ```
+```json
+{
+  "name": "Game 6",
+  "clips": [
+    "https://www.youtube.com/shorts/AAAAAAAAAAA",
+    "https://www.youtube.com/shorts/BBBBBBBBBBB",
+    "https://www.youtube.com/shorts/CCCCCCCCCCC"
+  ]
+}
+```
 
-3. The terminal prints the addresses to open, for example:
+- Each game needs at least 2 clips. It can have 3 or more.
+- Each round, the game picks one clip at random for everyone, and a different one from the same game for the imposter.
+- Shorts links, normal `watch?v=` links and `youtu.be` links all work.
+- To play only part of a long video, write the clip like this (times in seconds):
+  `{ "url": "https://www.youtube.com/watch?v=XXXXXXXXXXX", "start": 30, "end": 60 }`
+- `"rounds": 5` at the top sets how many rounds a game has. Each round uses a different game, so you need at least that many games.
 
-   ```
-   On this computer:   http://localhost:3000
-   Same Wi-Fi players: http://192.168.1.20:3000
-   ```
+When the server starts, it checks every clip with YouTube. If a clip is deleted, private or blocks embedding, the host sees a warning in the lobby.
 
-## Testing on your own
+On Render: edit `games.json` on GitHub and commit. Render redeploys automatically in a few minutes.
 
-Open `http://localhost:3000` in two or three browser windows (use a private/incognito window for each so they act as different players). Create a party in one, join with the code in the others.
+## Settings
 
-## Playing with people on other networks
+The host can switch on **Imposter knows they're the imposter** in the lobby. When it's off, nobody is told, not even the imposter.
 
-The server only runs on your computer, so people elsewhere need a private route to it. The easiest free option is **Tailscale**:
+## Run it on your computer
 
-1. You and each friend install Tailscale and log in.
-2. Invite them to your Tailscale network.
-3. They open `http://<your-tailscale-ip>:3000` (shown in the Tailscale app).
+```
+npm install
+npm start
+```
 
-Only people you've invited can reach the game. It is not on the public internet.
+Open `http://localhost:3000`. The password is whatever `ACCESS_PASSWORD` is set to (default `letmein`).
 
 ## Files
 
-- `server.js` — keeps track of parties and players
-- `public/index.html` — the page players see
+- `server.js` handles parties, rounds, hints, votes and scores
+- `games.json` holds your clips
+- `public/index.html` is the page players see
