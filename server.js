@@ -154,8 +154,9 @@ function publicState(party) {
   };
   if (cur) {
     s.playing = cur.started;
-    // Only say when EVERYONE is done; per-player finish times would give the imposter away.
-    s.allWatched = cur.started && activeOf(party).every((p) => cur.watched.has(p.key));
+    // Discussion starts for everyone at once: when the timer for the longest clip runs out
+    // (or everyone has finished, if the clip lengths aren't known).
+    s.allWatched = !!cur.discuss || (cur.started && activeOf(party).every((p) => cur.watched.has(p.key)));
     s.clipLength = cur.clipLength || null;
     if (party.phase === "reveal") s.result = cur.result;
   }
@@ -212,7 +213,8 @@ function startRound(party) {
     loaded: new Set(),
     watched: new Set(),
     durations: {}, // player key -> length of their clip in seconds
-    clipLength: null, // everyone's clip stops at this length, so nobody finishes early
+    clipLength: null, // length of the longest clip; the shared timer runs this long
+    discuss: false, // true once the timer is up and players should unmute
     started: false,
     result: null,
   };
@@ -225,14 +227,28 @@ function beginPlayback(party) {
   const cur = party.cur;
   if (party.phase !== "watch" || cur.started) return;
   cur.started = true;
+  cur.startedAt = Date.now();
   updateClipLength(cur);
-  setTimer(party, 0); // no time limit: the host reveals when everyone's ready
+  scheduleDiscuss(party);
   broadcast(party);
 }
 
 function updateClipLength(cur) {
   const lens = Object.values(cur.durations).filter((d) => d > 0);
-  cur.clipLength = lens.length ? Math.floor(Math.min(...lens) * 10) / 10 : null;
+  cur.clipLength = lens.length ? Math.ceil(Math.max(...lens)) : null;
+}
+
+const DISCUSS_BUFFER = 2000; // a little slack for loading
+
+// Everyone watches their whole clip; the timer runs for the longest one, then everyone unmutes together.
+function scheduleDiscuss(party) {
+  const cur = party.cur;
+  if (!cur.started || cur.discuss || !cur.clipLength) return setTimer(party, 0);
+  const left = cur.startedAt + cur.clipLength * 1000 + DISCUSS_BUFFER - Date.now();
+  setTimer(party, Math.max(1, left), () => {
+    cur.discuss = true;
+    broadcast(party);
+  });
 }
 
 function reveal(party) {
@@ -385,7 +401,7 @@ io.on("connection", (socket) => {
     const d = Number(duration);
     if (d > 0 && d < 3600) {
       party.cur.durations[p.key] = d;
-      if (party.cur.started) updateClipLength(party.cur); // a late loader may shorten the round
+      if (party.cur.started) { updateClipLength(party.cur); scheduleDiscuss(party); } // a late loader may have the longer clip
     }
     checkProgress(party);
   });
