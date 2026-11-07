@@ -161,6 +161,23 @@ body.theatre .clipbox,body.theatre .clipbox.vertical{position:fixed;inset:0;z-in
 .frame.ig{aspect-ratio:9/17;width:min(100%,260px)}
 body.theatre .clipbox.ig{width:min(100vw,calc(100vh * 9 / 17));left:50%;transform:translateX(-50%)}
 .ighint{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);z-index:3;background:rgba(16,17,21,.78);color:#f1f2f5;padding:8px 14px;border-radius:999px;font-weight:600;font-size:.875rem;white-space:nowrap;pointer-events:none}
+/* Uploaded / file videos */
+.clipbox video,.frame video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000;border:0}
+/* Own-clips editor in the lobby */
+.custom{display:flex;flex-direction:column;gap:14px}
+.cround{border:1.5px solid var(--hair);border-radius:18px;padding:14px 16px 16px;margin:0;display:flex;flex-direction:column;gap:12px;min-width:0}
+.cround .rhead{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.cround .rhead .meta{margin:0}
+.cclip{display:flex;flex-direction:column;gap:6px;min-width:0}
+.cclip>span{font-size:.875rem;font-weight:600;color:var(--muted)}
+.cline{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.cline input[type=text]{flex:1 1 220px;min-width:0;height:44px;font-size:1rem}
+.cline input[type=number]{width:96px;height:44px;font:inherit;padding:0 12px;border:1.5px solid var(--field);border-radius:12px;background:var(--soft);color:var(--ink)}
+.btn.sm{height:40px;padding:0 14px;font-size:.875rem}
+.upchip{display:inline-flex;align-items:center;gap:8px;max-width:100%;padding:8px 8px 8px 14px;border-radius:999px;background:var(--soft);font-weight:600;font-size:.9375rem;overflow:hidden}
+.upchip span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.upchip button{border:0;background:var(--surface);color:var(--ink);border-radius:999px;width:28px;height:28px;cursor:pointer;flex:none}
+.custom .note{font-size:.875rem;color:var(--muted);margin:0}
 .clipwrap.collapsed .clipbox,.clipwrap.collapsed .cliperr{display:none}
 .cliperr{margin:0;color:var(--err);font-weight:600;text-align:center}
 .cliprow{justify-content:center}
@@ -278,6 +295,20 @@ body.theatre .clipbox.ig{width:min(100vw,calc(100vh * 9 / 17));left:50%;transfor
       <div><b>Imposter knows they're the imposter</b><span id="knowsHelp">Off: nobody knows, not even the imposter. On: the imposter is told and has to bluff.</span></div>
       <input type="checkbox" id="knowsIn" role="switch"><span class="track" aria-hidden="true"></span>
     </label>
+    <label class="switch" for="ownIn">
+      <div><b>Use our own clips</b><span id="ownHelp">Paste YouTube or Instagram links, or upload videos from your computer.</span></div>
+      <input type="checkbox" id="ownIn" role="switch"><span class="track" aria-hidden="true"></span>
+    </label>
+    <div class="custom" id="customBox" hidden>
+      <p class="note">Each round needs two clips. Everyone gets one of them and the imposter gets the other, picked at random. Use two clips of the same kind in a round (two YouTube, two Instagram or two uploads), around the same length. Only you can see these. Uploaded videos are deleted when the party ends.</p>
+      <div id="customRows"></div>
+      <div class="actions">
+        <button class="btn" id="addRoundBtn" type="button">Add round</button>
+        <button class="btn primary" id="saveClipsBtn" type="button">Save clips</button>
+      </div>
+      <p class="status" id="customStatus" role="status"></p>
+      <div class="warn" id="customWarn" hidden><b>Fix these rounds:</b><ul id="customProblems"></ul></div>
+    </div>
     <p class="sub" id="roundsInfo"></p>
     <div class="warn" id="clipWarn" hidden><b>Some clips may not play.</b> Fix these in games.json:<ul id="clipWarnList"></ul></div>
     <p class="status" id="lobbyStatus" role="status"></p>
@@ -439,6 +470,76 @@ $("joinBtn").onclick=()=>{const code=$("codeIn").value.trim().toUpperCase();if(!
 $("codeIn").addEventListener("keydown",e=>{if(e.key==="Enter")$("joinBtn").click()});
 $("readyBtn").onclick=()=>socket.emit("ready",!player(me?.id)?.ready);
 $("knowsIn").onchange=e=>socket.emit("settings",{imposterKnows:e.target.checked});
+// ---------- own clips (host only) ----------
+let draft=null, draftDirty=false;
+const blankClip=()=>({url:"",seconds:"",upload:"",name:""});
+const isIg=u=>/instagram\.com\//i.test(u||"");
+const draftFromServer=()=>me.custom&&me.custom.length?me.custom.map(r=>({a:{...blankClip(),...r.a},b:{...blankClip(),...r.b}})):[{a:blankClip(),b:blankClip()}];
+function setDirty(){draftDirty=true;$("customStatus").className="status";$("customStatus").textContent="Not saved yet. Press Save clips when you're done.";renderLobby()}
+$("ownIn").onchange=e=>socket.emit("settings",{source:e.target.checked?"custom":"builtin"});
+$("addRoundBtn").onclick=()=>{if(draft.length>=10)return toast("You can have up to 10 rounds.");draft.push({a:blankClip(),b:blankClip()});buildRows();setDirty()};
+const pack=c=>c.upload?{upload:c.upload}:{url:c.url.trim(),seconds:Number(c.seconds)||undefined};
+$("saveClipsBtn").onclick=()=>{
+  const btn=$("saveClipsBtn");btn.disabled=true;$("customStatus").className="status";$("customStatus").textContent="Checking your clips…";
+  socket.emit("customClips",draft.map(r=>({a:pack(r.a),b:pack(r.b)})),res=>{
+    btn.disabled=false;
+    if(res?.error){$("customStatus").textContent=res.error;return}
+    draftDirty=false;
+    const probs=res.problems||[];
+    $("customStatus").className=res.rounds?"status ok":"status";
+    $("customStatus").textContent=res.rounds?`Saved. ${res.rounds} round${res.rounds>1?"s":""} ready to play.`:"No rounds are ready yet.";
+    $("customWarn").hidden=!probs.length;$("customProblems").replaceChildren(...probs.map(t=>el("li",null,t)));
+    renderLobby();
+  });
+};
+function clipEditor(c,label){
+  const wrap=el("div","cclip");wrap.append(el("span",null,label));
+  const line=el("div","cline");wrap.append(line);
+  if(c.upload){
+    const chip=el("span","upchip");const x=el("button",null,"✕");x.type="button";x.setAttribute("aria-label","Remove "+c.name);
+    x.onclick=()=>{Object.assign(c,blankClip());buildRows();setDirty()};
+    chip.append(el("span",null,"🎞 "+c.name),x);line.append(chip);return wrap;
+  }
+  const url=document.createElement("input");url.type="text";url.placeholder="YouTube or Instagram link";url.value=c.url;url.setAttribute("aria-label",label+" link");
+  const secs=document.createElement("input");secs.type="number";secs.min="1";secs.max="600";secs.placeholder="Seconds";secs.value=c.seconds;secs.setAttribute("aria-label",label+" length in seconds");secs.hidden=!isIg(c.url);
+  url.oninput=()=>{c.url=url.value;secs.hidden=!isIg(c.url);setDirty()};
+  secs.oninput=()=>{c.seconds=secs.value;setDirty()};
+  const up=el("button","btn sm","Upload video");up.type="button";
+  const file=document.createElement("input");file.type="file";file.accept="video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov,.m4v";file.hidden=true;
+  up.onclick=()=>file.click();
+  file.onchange=()=>{if(file.files[0])uploadVideo(file.files[0],c,up)};
+  line.append(url,secs,up,file);
+  return wrap;
+}
+function buildRows(){
+  $("customRows").replaceChildren(...draft.map((r,i)=>{
+    const box=el("div","cround");
+    const head=el("div","rhead");head.append(el("p","meta","Round "+(i+1)));
+    if(draft.length>1){const rm=el("button","btn ghost sm","Remove");rm.type="button";rm.onclick=()=>{draft.splice(i,1);buildRows();setDirty()};head.append(rm)}
+    box.append(head,clipEditor(r.a,"Clip 1"),clipEditor(r.b,"Clip 2"));
+    return box;
+  }));
+}
+function videoInfo(f){return new Promise(res=>{const v=document.createElement("video");v.preload="metadata";v.muted=true;const u=URL.createObjectURL(f);let fin=false;
+  const done=x=>{if(fin)return;fin=true;URL.revokeObjectURL(u);res(x)};v.onloadedmetadata=()=>done({duration:v.duration,vertical:v.videoHeight>v.videoWidth});v.onerror=()=>done(null);v.src=u;setTimeout(()=>done(null),8000)})}
+async function uploadVideo(f,c,btn){
+  const type=f.type||({mov:"video/quicktime",mp4:"video/mp4",webm:"video/webm",m4v:"video/x-m4v"})[(f.name.split(".").pop()||"").toLowerCase()]||"";
+  if(f.size>60*1024*1024)return toast("That video is over 60 MB. Trim or compress it first.");
+  const info=await videoInfo(f);
+  if(info&&info.duration>60)toast(`That video is ${Math.round(info.duration)} seconds long. Clips work best under 25 seconds.`);
+  const seat=load("ocoSeat")||{};
+  const xhr=new XMLHttpRequest();xhr.open("POST","/upload");
+  xhr.setRequestHeader("Content-Type",type||"application/octet-stream");
+  xhr.setRequestHeader("X-Password",socket.auth.password||"");xhr.setRequestHeader("X-Party",state.code);xhr.setRequestHeader("X-Seat",seat.key||"");
+  xhr.setRequestHeader("X-Name",encodeURIComponent(f.name));xhr.setRequestHeader("X-Vertical",info?.vertical?"1":"0");
+  btn.disabled=true;btn.textContent="Uploading 0%";
+  xhr.upload.onprogress=e=>{if(e.lengthComputable)btn.textContent=`Uploading ${Math.floor(e.loaded/e.total*100)}%`};
+  xhr.onload=()=>{let r={};try{r=JSON.parse(xhr.responseText)}catch(e){}
+    if(xhr.status===200&&r.ok){Object.assign(c,{upload:r.upload,name:r.name,url:"",seconds:""});buildRows();setDirty()}
+    else{btn.disabled=false;btn.textContent="Upload video";toast(r.error||"The upload didn't work. Try again.")}};
+  xhr.onerror=()=>{btn.disabled=false;btn.textContent="Upload video";toast("The upload didn't work. Check your connection and try again.")};
+  xhr.send(f);
+}
 $("startBtn").onclick=()=>socket.emit("start",res=>{$("lobbyErr").textContent=res?.error||""});
 function leaveParty(){socket.emit("leave");store("ocoSeat",null);state=null;me=null;destroyPlayer();show("scrJoin")}
 $("leaveBtn").onclick=leaveParty;$("finLeave").onclick=leaveParty;
@@ -451,8 +552,8 @@ $("lobbyBtn").onclick=()=>socket.emit("toLobby");
 let yt=null, ytOk=false, clipKey=null, localStarted=false, reportedWatched=false, curClip=null, clipOpen=false;
 const ytReady=new Promise(r=>{if(window.YT&&YT.Player)r();else window.onYouTubeIframeAPIReady=r});
 setTimeout(()=>{if(!(window.YT&&YT.Player)){$("clipErr").textContent="The YouTube player didn't load. If you use an ad blocker or privacy extension, allow YouTube on this site and refresh.";$("clipErr").hidden=false}},10000);
-let igTimer=null;
-function destroyPlayer(){if(yt){try{yt.destroy()}catch(e){}}yt=null;ytOk=false;clipKey=null;clearTimeout(igTimer);$("igHint").hidden=true;$("clipBox").classList.remove("ig");$("ytSlot").replaceChildren()}
+let igTimer=null, vid=null;
+function destroyPlayer(){if(vid){try{vid.pause();vid.removeAttribute("src");vid.load()}catch(e){}}vid=null;if(yt){try{yt.destroy()}catch(e){}}yt=null;ytOk=false;clipKey=null;clearTimeout(igTimer);$("igHint").hidden=true;$("clipBox").classList.remove("ig");$("ytSlot").replaceChildren()}
 const igSrc=id=>`https://www.instagram.com/reel/${id}/embed/`;
 function igFrame(id,title){const f=document.createElement("iframe");f.className="igf";f.src=igSrc(id);f.title=title;f.allow="autoplay; encrypted-media; picture-in-picture";f.setAttribute("scrolling","no");return f}
 function cover(text,showTap){$("cover").hidden=false;$("coverText").textContent=text;$("tapPlay").hidden=!showTap}
@@ -463,6 +564,17 @@ async function ensurePlayer(clip){
   $("clipErr").hidden=true;$("replayBtn").hidden=true;
   $("clipBox").classList.toggle("vertical",!!clip.vertical);
   cover("Loading your clip…",false);
+  if(clip.kind==="file"){
+    const v=document.createElement("video");vid=v;
+    v.src=clip.src;v.playsInline=true;v.preload="auto";v.setAttribute("playsinline","");v.disablePictureInPicture=true;
+    v.addEventListener("loadedmetadata",()=>{if(v.videoHeight>v.videoWidth)$("clipBox").classList.add("vertical")});
+    v.addEventListener("canplay",()=>{if(clipKey!==k||ytOk)return;ytOk=true;socket.emit("loaded",{duration:v.duration||0});syncPlay()});
+    v.addEventListener("playing",()=>{$("cover").hidden=true});
+    v.addEventListener("ended",finishClip);
+    v.addEventListener("error",()=>{if(clipKey!==k)return;$("clipErr").textContent="This video couldn't load. Tell the host.";$("clipErr").hidden=false;cover("Clip unavailable",false);if(!reportedWatched){reportedWatched=true;socket.emit("watched",{error:"file"})}});
+    $("ytSlot").append(v);
+    return;
+  }
   if(clip.kind==="instagram"){
     // Instagram's embed has no controls we can drive, so each player taps play themselves once everyone's loaded.
     $("clipBox").classList.add("ig");
@@ -497,6 +609,7 @@ function syncPlay(){
     igTimer=setTimeout(()=>{$("igHint").hidden=true;finishClip()},((curClip.seconds||25)+3)*1000); // a little slack for the tap
     return;
   }
+  if(vid){vid.play().catch(()=>cover("Your browser paused the clip.",true));return}
   try{yt.playVideo()}catch(e){}
   setTimeout(()=>{if(!yt||!ytOk)return;const s=yt.getPlayerState();if(s!==1&&s!==3&&s!==0)cover("Your browser paused the clip.",true)},2500);
 }
@@ -512,8 +625,8 @@ function doneCover(){
 let endsAt=0;
 const fmt=ms=>{const t=Math.max(0,Math.ceil(ms/1000));return Math.floor(t/60)+":"+String(t%60).padStart(2,"0")};
 setInterval(()=>{if(state?.phase==="watch"&&state.playing&&!state.allWatched)renderWatch()},250);
-$("tapPlay").onclick=()=>{try{yt.playVideo()}catch(e){}$("tapPlay").hidden=true;$("coverText").textContent="Starting…"};
-$("replayBtn").onclick=()=>{if(!yt)return;try{yt.seekTo(curClip.start||0,true);yt.playVideo()}catch(e){}};
+$("tapPlay").onclick=()=>{if(vid)vid.play().catch(()=>{});else try{yt.playVideo()}catch(e){}$("tapPlay").hidden=true;$("coverText").textContent="Starting…"};
+$("replayBtn").onclick=()=>{if(vid){vid.currentTime=0;vid.play().catch(()=>{});return}if(!yt)return;try{yt.seekTo(curClip.start||0,true);yt.playVideo()}catch(e){}};
 $("toggleClip").onclick=()=>{clipOpen=!clipOpen;renderGame()};
 
 // ---------- rendering ----------
@@ -568,7 +681,12 @@ function renderLobby(){
   const iAmHost=me.isHost, host=player(state.hostId);
   const k=$("knowsIn");k.checked=!!state.settings.imposterKnows;k.disabled=!iAmHost;
   $("knowsHelp").textContent=(iAmHost?"":"The host sets this. ")+"Off: nobody knows, not even the imposter. On: the imposter is told and has to bluff.";
-  $("roundsInfo").textContent=state.totalRounds?`${state.totalRounds} rounds per game. Each round uses a different set of clips.`+(canFs?" Tip: press Fullscreen at the top so clips fill your screen.":""):"No clips are set up yet. Add some to games.json.";
+  const own=state.settings.source==="custom";
+  const o=$("ownIn");o.checked=own;o.disabled=!iAmHost;
+  $("ownHelp").textContent=iAmHost?"Paste YouTube or Instagram links, or upload videos from your computer.":own?"The host picked the clips for this game.":"The host can pick their own clips.";
+  $("customBox").hidden=!(iAmHost&&own);
+  if(iAmHost&&own&&!draft){draft=draftFromServer();buildRows()}
+  $("roundsInfo").textContent=own&&!state.totalRounds?(iAmHost?"Add your clips below and press Save clips.":"Waiting for the host to add clips."):state.totalRounds?`${state.totalRounds} rounds per game. Each round uses a different set of clips.`+(canFs?" Tip: press Fullscreen at the top so clips fill your screen.":""):"No clips are set up yet. Add some to games.json.";
   const probs=me.clipProblems||[];$("clipWarn").hidden=!probs.length;$("clipWarnList").replaceChildren(...probs.map(t=>el("li",null,t)));
   const n=state.players.length, ready=state.players.filter(p=>p.ready).length, st=$("lobbyStatus");
   if(n<state.min){st.className="status";st.textContent=`${n} of ${state.max} players. You need at least ${state.min} to start.`}
@@ -576,7 +694,8 @@ function renderLobby(){
   else{st.className="status ok";st.textContent=iAmHost?"Everyone's ready. Start when you like.":`Everyone's ready. Waiting for ${host?.name||"the host"} to start.`}
   const amReady=!!player(me.id)?.ready;
   $("readyBtn").textContent=amReady?"Ready ✓":"I'm ready";$("readyBtn").setAttribute("aria-pressed",amReady);
-  $("startBtn").hidden=!iAmHost;$("startBtn").disabled=!(n>=state.min&&ready===n&&state.totalRounds>0);
+  $("startBtn").hidden=!iAmHost;$("startBtn").disabled=!(n>=state.min&&ready===n&&state.totalRounds>0)||(own&&draftDirty);
+  if(iAmHost&&own&&draftDirty&&n>=state.min&&ready===n){st.className="status";st.textContent="Save your clips before you start."}
 }
 
 function renderGame(){
@@ -620,6 +739,11 @@ function frameFor(box,clip,title){
   box.classList.toggle("vertical",!!clip.vertical);
   box.classList.toggle("ig",clip.kind==="instagram");
   if(clip.kind==="instagram"){box.replaceChildren(igFrame(clip.id,title));return}
+  if(clip.kind==="file"){
+    const v=document.createElement("video");v.src=clip.src;v.controls=true;v.playsInline=true;v.preload="metadata";v.setAttribute("aria-label",title);
+    v.addEventListener("loadedmetadata",()=>box.classList.toggle("vertical",v.videoHeight>v.videoWidth));
+    box.replaceChildren(v);return;
+  }
   const f=document.createElement("iframe");
   const q=new URLSearchParams({rel:"0",playsinline:"1"});if(clip.start)q.set("start",clip.start);if(clip.end)q.set("end",clip.end);
   f.src=`https://www.youtube.com/embed/${clip.id}?${q}`;f.allow="autoplay; encrypted-media; picture-in-picture";f.title=title;f.loading="lazy";
