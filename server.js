@@ -150,11 +150,13 @@ function publicState(party) {
       ready: p.ready,
       connected: p.connected,
       loaded: !!cur?.loaded.has(p.key),
-      watched: !!cur?.watched.has(p.key),
     })),
   };
   if (cur) {
     s.playing = cur.started;
+    // Only say when EVERYONE is done; per-player finish times would give the imposter away.
+    s.allWatched = cur.started && activeOf(party).every((p) => cur.watched.has(p.key));
+    s.clipLength = cur.clipLength || null;
     if (party.phase === "reveal") s.result = cur.result;
   }
   if (party.phase === "final") s.history = party.history;
@@ -209,6 +211,8 @@ function startRound(party) {
     imposterName: imposter.name,
     loaded: new Set(),
     watched: new Set(),
+    durations: {}, // player key -> length of their clip in seconds
+    clipLength: null, // everyone's clip stops at this length, so nobody finishes early
     started: false,
     result: null,
   };
@@ -221,8 +225,14 @@ function beginPlayback(party) {
   const cur = party.cur;
   if (party.phase !== "watch" || cur.started) return;
   cur.started = true;
+  updateClipLength(cur);
   setTimer(party, 0); // no time limit: the host reveals when everyone's ready
   broadcast(party);
+}
+
+function updateClipLength(cur) {
+  const lens = Object.values(cur.durations).filter((d) => d > 0);
+  cur.clipLength = lens.length ? Math.floor(Math.min(...lens) * 10) / 10 : null;
 }
 
 function reveal(party) {
@@ -368,10 +378,15 @@ io.on("connection", (socket) => {
     ack(err ? { error: err } : { ok: true });
   });
 
-  socket.on("loaded", () => {
+  socket.on("loaded", ({ duration } = {}) => {
     const { party, p } = ctx();
     if (!p || party.phase !== "watch") return;
     party.cur.loaded.add(p.key);
+    const d = Number(duration);
+    if (d > 0 && d < 3600) {
+      party.cur.durations[p.key] = d;
+      if (party.cur.started) updateClipLength(party.cur); // a late loader may shorten the round
+    }
     checkProgress(party);
   });
 
