@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Clip Manager · Odd Clip Out</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700;800&display=swap">
+<style>
+:root{
+  --bg:#eef0f3; --surface:#ffffff; --soft:#f4f5f7; --ink:#15171c; --muted:#5a606c;
+  --field:#858b97; --hair:#e3e5ea; --err:#c4231c; --ok:#1d7646;
+  --shadow:0 1px 2px rgba(16,17,21,.04),0 16px 40px -16px rgba(16,17,21,.16);
+  --font:"Schibsted Grotesk",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#101115; --surface:#1a1b21; --soft:#23252c; --ink:#f1f2f5; --muted:#a4a9b4;
+  --field:#6e7380; --hair:#2a2c34; --err:#ff7a70; --ok:#5fd18f;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 20px 48px -16px rgba(0,0,0,.6); color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#101115; --surface:#1a1b21; --soft:#23252c; --ink:#f1f2f5; --muted:#a4a9b4;
+  --field:#6e7380; --hair:#2a2c34; --err:#ff7a70; --ok:#5fd18f; color-scheme:dark}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html{background:var(--bg)}
+body{margin:0;min-height:100vh;background:var(--bg);color:var(--ink);font-family:var(--font);line-height:1.5;-webkit-font-smoothing:antialiased;padding:24px 16px 200px}
+.wrap{max-width:760px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+header{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+h1{font-size:1.5rem;margin:0;letter-spacing:-.01em}
+h1 small{display:block;font-size:.9375rem;font-weight:500;color:var(--muted);letter-spacing:0}
+a{color:inherit}
+.card{background:var(--surface);border-radius:24px;box-shadow:var(--shadow);padding:20px;display:flex;flex-direction:column;gap:14px}
+.sub{color:var(--muted);margin:0;font-size:.9375rem}
+label{font-weight:600;font-size:.9375rem}
+input[type=text],input[type=password],input[type=number]{font:inherit;height:46px;padding:0 14px;border:1.5px solid var(--field);border-radius:12px;background:var(--soft);color:var(--ink);width:100%;min-width:0}
+input:focus-visible{outline:3px solid color-mix(in srgb,var(--ink) 18%,transparent);outline-offset:2px;border-color:var(--ink);background:var(--surface)}
+.btn{font:inherit;font-weight:700;height:46px;padding:0 20px;border-radius:999px;border:1.5px solid var(--hair);background:var(--surface);color:var(--ink);cursor:pointer;white-space:nowrap}
+.btn:hover:not(:disabled){border-color:var(--ink)}
+.btn:disabled{opacity:.5;cursor:default}
+.btn.primary{background:var(--ink);border-color:var(--ink);color:var(--surface)}
+.btn.sm{height:38px;padding:0 14px;font-size:.875rem}
+.btn.ghost{border-color:transparent;background:transparent;color:var(--muted)}
+.btn.ghost:hover:not(:disabled){color:var(--ink);background:var(--soft)}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.row>input{flex:1 1 200px}
+.game{border:1.5px solid var(--hair);border-radius:18px;padding:14px 16px 16px;display:flex;flex-direction:column;gap:12px}
+.game .head{display:flex;gap:10px;align-items:center}
+.game .head input{font-weight:700}
+.clip{display:flex;flex-direction:column;gap:6px}
+.clip>span{font-size:.875rem;font-weight:600;color:var(--muted)}
+.secs{width:110px!important;flex:none!important}
+.chip{display:inline-flex;align-items:center;gap:8px;max-width:100%;padding:6px 6px 6px 14px;border-radius:999px;background:var(--soft);font-weight:600;font-size:.9375rem}
+.chip span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.status{font-weight:600;margin:0}
+.status.ok{color:var(--ok)}
+.status.err{color:var(--err)}
+.warn{margin:0;padding:12px 16px;border-radius:14px;background:color-mix(in srgb,var(--err) 9%,var(--surface))}
+.warn ul{margin:6px 0 0;padding-left:18px;overflow-wrap:anywhere}
+.savebar{position:fixed;left:0;right:0;bottom:0;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(10px);border-top:1px solid var(--hair);padding:12px 16px calc(12px + env(safe-area-inset-bottom,0px))}
+.savebar .in{max-width:760px;margin:0 auto;display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.count{font-weight:700;margin:0}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Clip Manager<small>The built-in games everyone plays</small></h1>
+    <a href="/" class="sub">Back to the game</a>
+  </header>
+
+  <section class="card" id="gate">
+    <label for="adminIn">Admin password</label>
+    <form class="row" id="gateForm">
+      <input type="password" id="adminIn" autocomplete="current-password">
+      <button class="btn primary" type="submit">Open</button>
+    </form>
+    <p class="status err" id="gateErr" role="alert"></p>
+  </section>
+
+  <div id="editor" hidden>
+    <section class="card">
+      <p class="sub">Each game is one round: two clips from very different worlds, around the same length. Everyone gets one, the imposter gets the other. Use the same kind of clip in a game: two uploads, two YouTube links or two Instagram reels.</p>
+      <div class="row">
+        <label for="roundsIn">Rounds per game</label>
+        <input type="number" id="roundsIn" min="1" max="20" style="width:100px;flex:none">
+      </div>
+      <p class="sub" id="ghNote"></p>
+    </section>
+    <div style="height:16px"></div>
+    <div class="warn" id="problems" hidden><b>Fix these first:</b><ul id="problemList"></ul></div>
+    <div id="games" style="display:flex;flex-direction:column;gap:12px"></div>
+    <div style="height:12px"></div>
+    <div class="row"><button class="btn" id="addBtn" type="button">Add game</button></div>
+  </div>
+</div>
+
+<div class="savebar" id="saveBar" hidden>
+  <div class="in">
+    <div>
+      <p class="count" id="count"></p>
+      <p class="status" id="saveStatus" role="status"></p>
+    </div>
+    <button class="btn primary" id="saveBtn" type="button">Save games</button>
+  </div>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+const el=(t,c,txt)=>{const e=document.createElement(t);if(c)e.className=c;if(txt!=null)e.textContent=txt;return e};
+let pass="", data=null, dirty=false, maxMb=60;
+try{pass=sessionStorage.getItem("ocoAdmin")||""}catch(e){}
+
+const api=(url,opt={})=>fetch(url,{...opt,headers:{...(opt.headers||{}),"x-admin":pass}}).then(async r=>({status:r.status,body:await r.json().catch(()=>({}))}));
+$("gateForm").onsubmit=e=>{e.preventDefault();pass=$("adminIn").value;open()};
+async function open(){
+  if(!pass)return;
+  const r=await api("/admin/games");
+  if(r.status!==200){$("gateErr").textContent=r.body.error||"Couldn't open the clip manager.";$("gate").hidden=false;return}
+  try{sessionStorage.setItem("ocoAdmin",pass)}catch(e){}
+  maxMb=r.body.maxMb||60;
+  data={rounds:r.body.rounds||5,games:(r.body.games||[]).map(g=>({name:g.name||"",note:g.note,clips:(g.clips||[]).map(norm)}))};
+  $("gate").hidden=true;$("editor").hidden=false;$("saveBar").hidden=false;
+  $("roundsIn").value=data.rounds;
+  $("ghNote").textContent=r.body.github?"Saving also stores your games and videos on GitHub, so they stay after the site restarts. The site restarts about 2–3 minutes after each save, so save when nobody is mid-game.":"GitHub saving is off (GITHUB_TOKEN isn't set). Changes work straight away but are lost when the site restarts or redeploys.";
+  build();setDirty(false);
+}
+const norm=c=>typeof c==="string"?{url:c,seconds:""}:{url:c.url||"",seconds:c.seconds||"",start:c.start,end:c.end};
+const isIg=u=>/instagram\.com\//i.test(u||"");
+const isFile=u=>/^clips\//.test(u||"");
+function setDirty(d){dirty=d;$("count").textContent=`${data.games.length} game${data.games.length===1?"":"s"}`+(d?" · unsaved changes":"");if(d){$("saveStatus").className="status";$("saveStatus").textContent=""}}
+$("roundsIn").oninput=()=>{data.rounds=Number($("roundsIn").value)||5;setDirty(true)};
+$("addBtn").onclick=()=>{data.games.push({name:`Game ${data.games.length+1}`,clips:[{url:"",seconds:""},{url:"",seconds:""}]});build();setDirty(true);$("games").lastElementChild?.scrollIntoView({behavior:"smooth",block:"center"})};
+window.addEventListener("beforeunload",e=>{if(dirty){e.preventDefault();e.returnValue=""}});
+
+function clipEditor(c,label){
+  const w=el("div","clip");w.append(el("span",null,label));
+  const line=el("div","row");w.append(line);
+  if(isFile(c.url)){
+    const chip=el("span","chip");const a=el("a",null,"Preview");a.href="/"+c.url;a.target="_blank";a.rel="noopener";
+    const x=el("button","btn ghost sm","Remove");x.type="button";x.onclick=()=>{c.url="";build();setDirty(true)};
+    chip.append(el("span",null,"🎞 "+c.url.replace(/^clips\//,"")),a,x);line.append(chip);return w;
+  }
+  const url=document.createElement("input");url.type="text";url.placeholder="YouTube or Instagram link";url.value=c.url;url.setAttribute("aria-label",label+" link");
+  const secs=document.createElement("input");secs.type="number";secs.className="secs";secs.min="1";secs.placeholder="Seconds";secs.value=c.seconds||"";secs.hidden=!isIg(c.url);secs.setAttribute("aria-label",label+" length in seconds");
+  url.oninput=()=>{c.url=url.value.trim();secs.hidden=!isIg(c.url);setDirty(true)};
+  secs.oninput=()=>{c.seconds=Number(secs.value)||"";setDirty(true)};
+  const up=el("button","btn sm","Upload video");up.type="button";
+  const f=document.createElement("input");f.type="file";f.hidden=true;f.accept="video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov,.m4v";
+  up.onclick=()=>f.click();f.onchange=()=>f.files[0]&&upload(f.files[0],c,up);
+  line.append(url,secs,up,f);return w;
+}
+function build(){
+  $("games").replaceChildren(...data.games.map((g,i)=>{
+    const box=el("section","game card");
+    const head=el("div","head");
+    const name=document.createElement("input");name.type="text";name.value=g.name;name.setAttribute("aria-label","Game name");name.oninput=()=>{g.name=name.value;setDirty(true)};
+    const rm=el("button","btn ghost sm","Delete");rm.type="button";rm.onclick=()=>{if(!confirmDelete(g))return;data.games.splice(i,1);build();setDirty(true)};
+    head.append(name,rm);box.append(head);
+    if(g.note)box.append(el("p","sub",g.note));
+    while(g.clips.length<2)g.clips.push({url:"",seconds:""});
+    g.clips.forEach((c,j)=>box.append(clipEditor(c,"Clip "+(j+1))));
+    return box;
+  }));
+}
+function confirmDelete(g){return g.clips.every(c=>!c.url)||window.confirm(`Delete "${g.name}"?`)}
+function videoLength(f){return new Promise(res=>{const v=document.createElement("video");v.preload="metadata";v.muted=true;const u=URL.createObjectURL(f);let done=false;const fin=x=>{if(done)return;done=true;URL.revokeObjectURL(u);res(x)};v.onloadedmetadata=()=>fin(v.duration);v.onerror=()=>fin(0);v.src=u;setTimeout(()=>fin(0),8000)})}
+async function upload(file,c,btn){
+  const type=file.type||({mov:"video/quicktime",mp4:"video/mp4",webm:"video/webm",m4v:"video/x-m4v"})[(file.name.split(".").pop()||"").toLowerCase()]||"";
+  if(file.size>maxMb*1024*1024){alert(`That video is over ${maxMb} MB. Trim or compress it first.`);return}
+  const secs=await videoLength(file);
+  if(secs>25&&!confirm(`This video is ${Math.round(secs)} seconds long. Clips work best at 25 seconds or less. Upload it anyway?`))return;
+  const x=new XMLHttpRequest();x.open("POST","/admin/upload");
+  x.setRequestHeader("Content-Type",type||"application/octet-stream");x.setRequestHeader("x-admin",pass);x.setRequestHeader("x-name",encodeURIComponent(file.name));
+  btn.disabled=true;btn.textContent="Uploading 0%";
+  x.upload.onprogress=e=>{if(e.lengthComputable)btn.textContent=`Uploading ${Math.floor(e.loaded/e.total*100)}%`};
+  x.onload=()=>{let r={};try{r=JSON.parse(x.responseText)}catch(e){}
+    if(x.status===200&&r.ok){c.url=r.path;c.seconds="";build();setDirty(true)}
+    else{btn.disabled=false;btn.textContent="Upload video";alert(r.error||"The upload didn't work. Try again.")}};
+  x.onerror=()=>{btn.disabled=false;btn.textContent="Upload video";alert("The upload didn't work. Check your connection.")};
+  x.send(file);
+}
+$("saveBtn").onclick=async()=>{
+  const btn=$("saveBtn");btn.disabled=true;$("saveStatus").className="status";$("saveStatus").textContent="Saving…";$("problems").hidden=true;
+  const games=data.games.map(g=>({name:g.name,note:g.note,clips:g.clips.filter(c=>c.url).map(c=>{const o={url:c.url};if(c.seconds)o.seconds=Number(c.seconds);if(Number.isFinite(c.start))o.start=c.start;if(Number.isFinite(c.end))o.end=c.end;return Object.keys(o).length===1?c.url:o})}));
+  const r=await api("/admin/save",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({rounds:data.rounds,games})});
+  btn.disabled=false;
+  if(r.status!==200||!r.body.ok){
+    $("saveStatus").className="status err";$("saveStatus").textContent=r.body.error||"Couldn't save.";
+    const p=r.body.problems||[];$("problems").hidden=!p.length;$("problemList").replaceChildren(...p.map(t=>el("li",null,t)));if(p.length)$("problems").scrollIntoView({behavior:"smooth",block:"center"});return;
+  }
+  dirty=false;
+  $("saveStatus").className="status ok";
+  $("saveStatus").textContent=r.body.github?"Saved. New games start using these clips now, and they're stored on GitHub so they stay.":r.body.githubError?`Saved for now, but GitHub didn't save it (${r.body.githubError}). It'll be lost when the site restarts.`:"Saved for now. Set GITHUB_TOKEN so changes stay after a restart.";
+  if(r.body.githubError)$("saveStatus").className="status err";
+};
+if(pass)open();
+</script>
+</body>
+</html>
