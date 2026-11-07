@@ -26,12 +26,19 @@ function parseClip(entry) {
   const c = typeof entry === "string" ? { url: entry } : entry || {};
   const s = String(c.url || "").trim();
   let m, id, vertical = false;
+  // Instagram reels play in Instagram's own embed. It can't tell us the clip's length, so games.json gives it as "seconds".
+  if ((m = s.match(/instagram\.com\/(?:[A-Za-z0-9_.]+\/)?(?:reels?|p|tv)\/([A-Za-z0-9_-]{5,40})/))) {
+    const secs = Number(c.seconds);
+    if (!(secs > 0)) console.warn(`${s}: Instagram clips need "seconds" (the clip's length). Using 25.`);
+    return { kind: "instagram", id: m[1], url: s, vertical: true, seconds: secs > 0 ? Math.min(600, secs) : 25 };
+  }
   if ((m = s.match(/youtube\.com\/shorts\/([A-Za-z0-9_-]{11})/))) { id = m[1]; vertical = true; }
   else if ((m = s.match(/[?&]v=([A-Za-z0-9_-]{11})/))) id = m[1];
   else if ((m = s.match(/youtu\.be\/([A-Za-z0-9_-]{11})/))) id = m[1];
   else if ((m = s.match(/youtube\.com\/embed\/([A-Za-z0-9_-]{11})/))) id = m[1];
   if (!id) return null;
   return {
+    kind: "youtube",
     id,
     url: s,
     vertical: typeof c.vertical === "boolean" ? c.vertical : vertical,
@@ -55,7 +62,7 @@ function loadGames() {
   (raw.games || []).forEach((g, i) => {
     const name = String(g.name || `Game ${i + 1}`).slice(0, 40);
     const clips = (g.clips || []).map(parseClip).filter(Boolean);
-    if (clips.length < 2) console.warn(`${name}: needs at least 2 valid YouTube links, skipping it.`);
+    if (clips.length < 2) console.warn(`${name}: needs at least 2 valid YouTube or Instagram links, skipping it.`);
     else games.push({ name, clips });
   });
   return { rounds: Math.max(1, Number(raw.rounds) || 5), games };
@@ -67,6 +74,7 @@ async function checkClips() {
   const problems = [];
   for (const g of games) {
     for (const c of g.clips) {
+      if (c.kind !== "youtube") continue; // only YouTube can be checked ahead of time
       try {
         const r = await fetch(`https://www.youtube.com/oembed?format=json&url=${encodeURIComponent("https://www.youtube.com/watch?v=" + c.id)}`);
         if (r.ok) {
@@ -176,7 +184,7 @@ function personalState(party, p) {
   if (cur && party.phase === "watch") {
     const isImp = cur.imposterKey === p.key;
     const clip = isImp ? cur.impClip : cur.mainClip;
-    me.clip = { id: clip.id, vertical: clip.vertical, start: clip.start, end: clip.end, round: party.round };
+    me.clip = { kind: clip.kind, seconds: clip.seconds, id: clip.id, vertical: clip.vertical, start: clip.start, end: clip.end, round: party.round };
     if (party.settings.imposterKnows) me.isImposter = isImp;
   }
   return me;

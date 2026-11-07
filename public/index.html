@@ -153,6 +153,14 @@ button{font:inherit;cursor:pointer}
 .fsbtn{height:36px;padding:0 14px;font-size:.875rem}
 body.theatre .clipbox,body.theatre .clipbox.vertical{position:fixed;inset:0;z-index:50;width:100vw;height:100vh;max-width:none;aspect-ratio:auto;border-radius:0}
 .hud{position:absolute;top:calc(16px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);z-index:3;background:rgba(16,17,21,.74);color:#f1f2f5;padding:8px 16px;border-radius:999px;font-weight:600;font-size:.9375rem;white-space:nowrap;pointer-events:none;font-variant-numeric:tabular-nums}
+/* Instagram reels: the embed has Instagram's name bar above the video and likes/comments below it. We size the
+   frame so only the video shows inside the box. */
+.clipbox.ig{aspect-ratio:9/17;width:auto;height:min(68vh,620px);margin:0 auto}
+.clipbox.ig iframe.igf,.frame.ig iframe.igf{inset:auto;position:absolute;left:0;width:100%;top:calc(-1 * var(--ig-top));height:calc(100% + var(--ig-top) + var(--ig-bottom));border:0}
+.clipbox.ig,.frame.ig{--ig-top:0px;--ig-bottom:240px} /* keep Instagram's name bar, hide likes and comments */
+.frame.ig{aspect-ratio:9/17;width:min(100%,260px)}
+body.theatre .clipbox.ig{width:min(100vw,calc(100vh * 9 / 17));left:50%;transform:translateX(-50%)}
+.ighint{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);z-index:3;background:rgba(16,17,21,.78);color:#f1f2f5;padding:8px 14px;border-radius:999px;font-weight:600;font-size:.875rem;white-space:nowrap;pointer-events:none}
 .clipwrap.collapsed .clipbox,.clipwrap.collapsed .cliperr{display:none}
 .cliperr{margin:0;color:var(--err);font-weight:600;text-align:center}
 .cliprow{justify-content:center}
@@ -295,6 +303,7 @@ body.theatre .clipbox,body.theatre .clipbox.vertical{position:fixed;inset:0;z-in
       <div class="clipbox" id="clipBox">
         <div class="slot" id="ytSlot"></div>
         <div class="hud" id="hud" hidden></div>
+        <div class="ighint" id="igHint" hidden>Tap ▶ on the video to play it</div>
         <div class="cover" id="cover">
           <span id="coverText">Loading your clip…</span>
           <button class="btn primary" id="tapPlay" hidden>Press play</button>
@@ -442,7 +451,10 @@ $("lobbyBtn").onclick=()=>socket.emit("toLobby");
 let yt=null, ytOk=false, clipKey=null, localStarted=false, reportedWatched=false, curClip=null, clipOpen=false;
 const ytReady=new Promise(r=>{if(window.YT&&YT.Player)r();else window.onYouTubeIframeAPIReady=r});
 setTimeout(()=>{if(!(window.YT&&YT.Player)){$("clipErr").textContent="The YouTube player didn't load. If you use an ad blocker or privacy extension, allow YouTube on this site and refresh.";$("clipErr").hidden=false}},10000);
-function destroyPlayer(){if(yt){try{yt.destroy()}catch(e){}}yt=null;ytOk=false;clipKey=null;$("ytSlot").replaceChildren()}
+let igTimer=null;
+function destroyPlayer(){if(yt){try{yt.destroy()}catch(e){}}yt=null;ytOk=false;clipKey=null;clearTimeout(igTimer);$("igHint").hidden=true;$("clipBox").classList.remove("ig");$("ytSlot").replaceChildren()}
+const igSrc=id=>`https://www.instagram.com/reel/${id}/embed/`;
+function igFrame(id,title){const f=document.createElement("iframe");f.className="igf";f.src=igSrc(id);f.title=title;f.allow="autoplay; encrypted-media; picture-in-picture";f.setAttribute("scrolling","no");return f}
 function cover(text,showTap){$("cover").hidden=false;$("coverText").textContent=text;$("tapPlay").hidden=!showTap}
 async function ensurePlayer(clip){
   const k=clip.round+":"+clip.id;
@@ -451,6 +463,14 @@ async function ensurePlayer(clip){
   $("clipErr").hidden=true;$("replayBtn").hidden=true;
   $("clipBox").classList.toggle("vertical",!!clip.vertical);
   cover("Loading your clip…",false);
+  if(clip.kind==="instagram"){
+    // Instagram's embed has no controls we can drive, so each player taps play themselves once everyone's loaded.
+    $("clipBox").classList.add("ig");
+    const f=igFrame(clip.id,"Your clip");
+    f.onload=()=>{if(clipKey!==k||ytOk)return;ytOk=true;socket.emit("loaded",{duration:clip.seconds||25});syncPlay()};
+    $("ytSlot").append(f);
+    return;
+  }
   await ytReady;
   if(clipKey!==k)return;
   const div=document.createElement("div");$("ytSlot").append(div);
@@ -471,6 +491,12 @@ async function ensurePlayer(clip){
 function syncPlay(){
   if(!ytOk||localStarted||!state||state.phase!=="watch"||!state.playing)return;
   localStarted=true;
+  if(curClip?.kind==="instagram"){
+    $("cover").hidden=true;$("igHint").hidden=false;
+    setTimeout(()=>{$("igHint").hidden=true},6000);
+    igTimer=setTimeout(()=>{$("igHint").hidden=true;finishClip()},((curClip.seconds||25)+3)*1000); // a little slack for the tap
+    return;
+  }
   try{yt.playVideo()}catch(e){}
   setTimeout(()=>{if(!yt||!ytOk)return;const s=yt.getPlayerState();if(s!==1&&s!==3&&s!==0)cover("Your browser paused the clip.",true)},2500);
 }
@@ -567,7 +593,7 @@ function renderGame(){
   if(!state.playing&&!localStarted)cover(ytOk?"Waiting for everyone to load…":"Loading your clip…",false);
   syncPlay();
   doneCover();
-  $("replayBtn").hidden=!(allDone&&reportedWatched);
+  $("replayBtn").hidden=!(allDone&&reportedWatched)||curClip?.kind==="instagram";
   renderWatch();
   $("hostBar").hidden=!me.isHost;
   $("startNowBtn").hidden=state.playing;
@@ -592,6 +618,8 @@ function renderWatch(){
 let revKey=null;
 function frameFor(box,clip,title){
   box.classList.toggle("vertical",!!clip.vertical);
+  box.classList.toggle("ig",clip.kind==="instagram");
+  if(clip.kind==="instagram"){box.replaceChildren(igFrame(clip.id,title));return}
   const f=document.createElement("iframe");
   const q=new URLSearchParams({rel:"0",playsinline:"1"});if(clip.start)q.set("start",clip.start);if(clip.end)q.set("end",clip.end);
   f.src=`https://www.youtube.com/embed/${clip.id}?${q}`;f.allow="autoplay; encrypted-media; picture-in-picture";f.title=title;f.loading="lazy";

@@ -22,6 +22,9 @@ All clips live in `games.json`. Each game is one round's set of clips:
 - Shorts links, normal `watch?v=` links and `youtu.be` links all work.
 - To play only part of a long video, write the clip like this (times in seconds):
   `{ "url": "https://www.youtube.com/watch?v=XXXXXXXXXXX", "start": 30, "end": 60 }`
+- Instagram reels work too. Instagram doesn't tell the game how long a reel is, so add its length in seconds:
+  `{ "url": "https://www.instagram.com/reel/XXXXXXXXXXX/", "seconds": 12 }`
+  Each player taps play on the reel themselves once everyone has loaded. Keep both clips in a game on the same site, or the look gives the imposter away.
 - `"rounds": 5` at the top sets how many rounds a game has. Each round uses a different game, so you need at least that many games.
 
 When the server starts, it checks every clip with YouTube. If a clip is deleted, private or blocks embedding, the host sees a warning in the lobby.
