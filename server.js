@@ -26,6 +26,10 @@ function parseClip(entry) {
   const c = typeof entry === "string" ? { url: entry } : entry || {};
   const s = String(c.url || "").trim();
   let m, id, vertical = false;
+  // Video files: put them in public/clips and list them as "clips/name.mp4".
+  if ((m = s.match(/^\/?(clips\/[A-Za-z0-9 _().-]+\.(?:mp4|webm|mov|m4v))$/i))) {
+    return { kind: "file", id: m[1], src: "/" + m[1].split("/").map(encodeURIComponent).join("/"), url: s, vertical: !!c.vertical };
+  }
   // Instagram reels play in Instagram's own embed. It can't tell us the clip's length, so games.json gives it as "seconds".
   if ((m = s.match(/instagram\.com\/(?:[A-Za-z0-9_.]+\/)?(?:reels?|p|tv)\/([A-Za-z0-9_-]{5,40})/))) {
     const secs = Number(c.seconds);
@@ -68,6 +72,47 @@ function loadGames() {
   return { rounds: Math.max(1, Number(raw.rounds) || 5), games };
 }
 
+// Check one YouTube clip: returns a problem message, or "" if it's fine. Also notes portrait clips (Shorts).
+async function checkYouTube(c) {
+  try {
+    const r = await fetch(`https://www.youtube.com/oembed?format=json&url=${encodeURIComponent("https://www.youtube.com/watch?v=" + c.id)}`, { signal: AbortSignal.timeout(6000) });
+    if (r.ok) { const info = await r.json().catch(() => ({})); if (info.height > info.width) tallClips.add(c.id); return ""; }
+    if (r.status === 401 || r.status === 403) return "doesn't allow playing on other sites";
+    if (r.status === 404 || r.status === 400) return "wasn't found (deleted or private?)";
+  } catch (e) {}
+  return "";
+}
+
+// A host's own clips: up to 10 rounds, each with two links. Returns { games, problems }.
+const MAX_CUSTOM_ROUNDS = 10;
+function clipFromRow(party, x) {
+  if (x?.upload) {
+    const u = party.uploads.get(String(x.upload));
+    return u ? { kind: "file", id: u.id, src: u.src, url: u.name, vertical: u.vertical } : null;
+  }
+  return parseClip({ url: String(x?.url || "").slice(0, 300), seconds: Number(x?.seconds) });
+}
+async function buildCustom(party, list) {
+  const games = [], problems = [];
+  const rows = (Array.isArray(list) ? list : []).slice(0, MAX_CUSTOM_ROUNDS);
+  for (let i = 0; i < rows.length; i++) {
+    const r = rows[i] || {}, label = `Round ${i + 1}`;
+    const a = clipFromRow(party, r.a), b = clipFromRow(party, r.b);
+    if (!a || !b) { problems.push(`${label}: ${!a && !b ? "both clips are" : !a ? "the first clip is" : "the second clip is"} missing. Paste a YouTube or Instagram link, or upload a video.`); continue; }
+    if (a.kind === b.kind && a.id === b.id) { problems.push(`${label}: both links are the same clip.`); continue; }
+    if (a.kind !== b.kind) { problems.push(`${label}: use two clips of the same kind (two YouTube, two Instagram or two uploads). Mixing them gives the imposter away.`); continue; }
+    if (a.kind === "instagram" && (!(Number(r.a?.seconds) > 0) || !(Number(r.b?.seconds) > 0))) { problems.push(`${label}: add how many seconds long each Instagram reel is.`); continue; }
+    let bad = false;
+    for (const [c, which] of [[a, "first"], [b, "second"]]) {
+      if (c.kind !== "youtube") continue;
+      const why = await checkYouTube(c);
+      if (why) { problems.push(`${label}: the ${which} clip ${why}.`); bad = true; }
+    }
+    if (!bad) games.push({ name: label, clips: [a, b] });
+  }
+  return { games, problems };
+}
+
 // Ask YouTube whether each clip exists and allows embedding. Results show in the host's lobby.
 async function checkClips() {
   const { games } = loadGames();
@@ -97,6 +142,57 @@ async function checkClips() {
 // ---------- helpers ----------
 const app = express();
 app.use(express.static(path.join(__dirname, "public")));
+
+// ---------- video uploads ----------
+// The host can upload their own videos for one party. They're kept on the server's disk only while the
+// party exists, then deleted. (On Render the disk is also wiped whenever the site restarts.)
+const UPLOAD_DIR = path.join(os.tmpdir(), "odd-clip-out-uploads");
+const MAX_UPLOAD_MB = Number(process.env.MAX_UPLOAD_MB) || 60;
+const MAX_UPLOADS_PER_PARTY = 20;
+const VIDEO_TYPES = { "video/mp4": ".mp4", "video/webm": ".webm", "video/quicktime": ".mov", "video/x-m4v": ".m4v" };
+fs.rmSync(UPLOAD_DIR, { recursive: true, force: true });
+fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+function deleteUploads(party) {
+  for (const u of party.uploads?.values() || []) fs.rm(u.file, { force: true }, () => {});
+  party.uploads?.clear();
+}
+
+app.post("/upload", (req, res) => {
+  const fail = (code, error) => { res.status(code).json({ error }); req.resume(); };
+  if (!samePassword(req.get("x-password"))) return fail(401, "Wrong password.");
+  const party = parties.get(String(req.get("x-party") || "").toUpperCase());
+  if (!party || party.hostKey !== req.get("x-seat")) return fail(403, "Only the host can upload clips.");
+  if (party.phase !== "lobby") return fail(409, "The game already started.");
+  if (party.uploads.size >= MAX_UPLOADS_PER_PARTY) return fail(413, `You can upload up to ${MAX_UPLOADS_PER_PARTY} videos per party.`);
+  const ext = VIDEO_TYPES[String(req.get("content-type") || "").split(";")[0].toLowerCase()];
+  if (!ext) return fail(415, "Upload an MP4, WebM or MOV video.");
+  const size = Number(req.get("content-length"));
+  if (size > MAX_UPLOAD_MB * 1024 * 1024) return fail(413, `Videos can be up to ${MAX_UPLOAD_MB} MB. Trim or compress it first.`);
+  const id = crypto.randomBytes(12).toString("hex"); // hard to guess, so only people in the party can load it
+  const file = path.join(UPLOAD_DIR, id + ext);
+  const out = fs.createWriteStream(file);
+  let got = 0, aborted = false;
+  req.on("data", (chunk) => {
+    got += chunk.length;
+    if (got > MAX_UPLOAD_MB * 1024 * 1024 && !aborted) { aborted = true; out.destroy(); fs.rm(file, { force: true }, () => {}); fail(413, `Videos can be up to ${MAX_UPLOAD_MB} MB.`); }
+  });
+  req.on("aborted", () => { aborted = true; out.destroy(); fs.rm(file, { force: true }, () => {}); });
+  req.pipe(out);
+  out.on("finish", () => {
+    if (aborted) return;
+    if (!parties.has(party.code)) { fs.rm(file, { force: true }, () => {}); return fail(410, "The party has ended."); }
+    const name = String(req.get("x-name") ? decodeURIComponent(req.get("x-name")) : "video").replace(/[^\w .()-]/g, "").slice(0, 60) || "video";
+    const u = { id, file, src: `/u/${id}${ext}`, name, vertical: req.get("x-vertical") === "1" };
+    party.uploads.set(id, u);
+    res.json({ ok: true, upload: id, name });
+  });
+  out.on("error", () => fail(500, "Couldn't save the video. Try again."));
+});
+// Uploaded videos stream with seeking support. File names are random, so links can't be guessed.
+app.get("/u/:file", (req, res) => {
+  if (!/^[a-f0-9]{24}\.(mp4|webm|mov|m4v)$/.test(req.params.file)) return res.sendStatus(404);
+  res.sendFile(path.join(UPLOAD_DIR, req.params.file), { maxAge: "1h" }, (e) => e && !res.headersSent && res.sendStatus(404));
+});
 const server = http.createServer(app);
 const io = new Server(server);
 
@@ -142,10 +238,16 @@ function setTimer(party, ms, fn) {
   party.timer = ms ? setTimeout(() => { party.deadline = 0; fn(); }, ms) : null;
 }
 
+// Which clips this party plays: the built-in games.json, or the host's own.
+function gamesFor(party) {
+  if (party.settings.source === "custom") return { games: party.custom || [], rounds: (party.custom || []).length };
+  return loadGames();
+}
+
 function publicState(party) {
   const cur = party.cur;
   const host = party.players.get(party.hostKey);
-  const { games, rounds } = loadGames();
+  const { games, rounds } = gamesFor(party);
   const s = {
     code: party.code,
     phase: party.phase,
@@ -180,11 +282,12 @@ function publicState(party) {
 function personalState(party, p) {
   const cur = party.cur;
   const me = { id: p.id, isHost: party.hostKey === p.key };
-  if (me.isHost && party.phase === "lobby" && clipProblems.length) me.clipProblems = clipProblems;
+  if (me.isHost && party.phase === "lobby" && clipProblems.length && party.settings.source !== "custom") me.clipProblems = clipProblems;
+  if (me.isHost && party.phase === "lobby") me.custom = party.customRaw || []; // only the host sees the links
   if (cur && party.phase === "watch") {
     const isImp = cur.imposterKey === p.key;
     const clip = isImp ? cur.impClip : cur.mainClip;
-    me.clip = { kind: clip.kind, seconds: clip.seconds, id: clip.id, vertical: clip.vertical, start: clip.start, end: clip.end, round: party.round };
+    me.clip = { kind: clip.kind, seconds: clip.seconds, src: clip.src, id: clip.id, vertical: clip.vertical, start: clip.start, end: clip.end, round: party.round };
     if (party.settings.imposterKnows) me.isImposter = isImp;
   }
   return me;
@@ -201,8 +304,8 @@ function broadcast(party) {
 
 // ---------- game flow ----------
 function startMatch(party) {
-  const { games, rounds } = loadGames();
-  if (!games.length) return "No games are set up yet. Add clips to games.json.";
+  const { games, rounds } = gamesFor(party);
+  if (!games.length) return party.settings.source === "custom" ? "Add at least one round of your own clips first." : "No games are set up yet. Add clips to games.json.";
   party.totalRounds = Math.min(rounds, games.length);
   party.deck = shuffle(games).slice(0, party.totalRounds);
   party.round = 0;
@@ -310,6 +413,7 @@ function removePlayer(party, key) {
   if (party.players.size === 0) {
     setTimer(party, 0);
     parties.delete(party.code);
+    deleteUploads(party);
     return;
   }
   if (party.hostKey === key) party.hostKey = party.players.keys().next().value; // oldest player becomes host
@@ -356,7 +460,7 @@ io.on("connection", (socket) => {
     name = cleanName(name);
     if (!name) return ack({ error: "Type your name first." });
     const code = newCode();
-    const party = { code, hostKey: null, phase: "lobby", settings: { imposterKnows: false }, players: new Map(), round: 0, cur: null, timer: null, deadline: 0 };
+    const party = { code, hostKey: null, phase: "lobby", settings: { imposterKnows: false, source: "builtin" }, custom: [], customRaw: [], uploads: new Map(), players: new Map(), round: 0, cur: null, timer: null, deadline: 0 };
     parties.set(code, party);
     seat(party, name, color, ack);
   });
@@ -396,6 +500,25 @@ io.on("connection", (socket) => {
     const { party, p } = ctx();
     if (!p || party.hostKey !== p.key || party.phase !== "lobby") return;
     if (typeof s.imposterKnows === "boolean") party.settings.imposterKnows = s.imposterKnows;
+    if (s.source === "builtin" || s.source === "custom") party.settings.source = s.source;
+    broadcast(party);
+  });
+
+  // The host's own clips. Links stay on the server and are only sent back to the host.
+  socket.on("customClips", async (list, ack) => {
+    if (typeof ack !== "function") ack = () => {};
+    const { party, p } = ctx();
+    if (!p || party.hostKey !== p.key || party.phase !== "lobby") return ack({ error: "Only the host can change clips in the lobby." });
+    const rows = (Array.isArray(list) ? list : []).slice(0, MAX_CUSTOM_ROUNDS);
+    const { games, problems } = await buildCustom(party, rows);
+    if (party.phase !== "lobby") return ack({ error: "The game already started." });
+    party.custom = games;
+    const raw = (x) => x?.upload && party.uploads.has(String(x.upload))
+      ? { upload: String(x.upload), name: party.uploads.get(String(x.upload)).name }
+      : { url: String(x?.url || "").slice(0, 300), seconds: Number(x?.seconds) || "" };
+    party.customRaw = rows.map((r) => ({ a: raw(r?.a), b: raw(r?.b) }));
+    party.settings.source = "custom";
+    ack({ ok: true, rounds: games.length, problems });
     broadcast(party);
   });
 

@@ -31,6 +31,12 @@ When the server starts, it checks every clip with YouTube. If a clip is deleted,
 
 On Render: edit `games.json` on GitHub and commit. Render redeploys automatically in a few minutes.
 
+## Your own clips in the lobby
+
+The host can switch on **Use our own clips** in the lobby and add up to 10 rounds. Each round has two clips: a YouTube link, an Instagram reel link (with its length in seconds), or a video uploaded from their computer (MP4, WebM or MOV, up to 60 MB). Only the host sees the links. Uploaded videos are kept only while the party is open and are deleted when it ends (and whenever the server restarts).
+
+You can also add your own video files to the built-in games: put them in `public/clips/` and list them as `"clips/my-video.mp4"` in `games.json`.
+
 ## Settings
 
 The host can switch on **Imposter knows they're the imposter** in the lobby. When it's off, nobody is told, not even the imposter.
