@@ -41,6 +41,7 @@ function parseClip(entry) {
 }
 
 let clipProblems = []; // filled in by checkClips()
+const tallClips = new Set(); // video ids YouTube reports as portrait (Shorts), found by checkClips()
 
 function loadGames() {
   let raw;
@@ -68,6 +69,10 @@ async function checkClips() {
     for (const c of g.clips) {
       try {
         const r = await fetch(`https://www.youtube.com/oembed?format=json&url=${encodeURIComponent("https://www.youtube.com/watch?v=" + c.id)}`);
+        if (r.ok) {
+          const info = await r.json().catch(() => ({}));
+          if (info.height > info.width) tallClips.add(c.id);
+        }
         if (r.status === 401 || r.status === 403) problems.push(`${g.name}: ${c.url} doesn't allow embedding on other sites`);
         else if (r.status === 404 || r.status === 400) problems.push(`${g.name}: ${c.url} wasn't found (deleted or private?)`);
       } catch (e) {
@@ -197,6 +202,9 @@ function startMatch(party) {
   startRound(party);
 }
 
+// Show Shorts in a tall frame even when they're listed with a normal watch?v= link.
+const shaped = (c) => ({ ...c, vertical: c.vertical || tallClips.has(c.id) });
+
 function startRound(party) {
   party.round++;
   const game = party.deck[party.round - 1];
@@ -205,8 +213,8 @@ function startRound(party) {
   const imposter = pick(players.filter((p) => p.connected).length ? players.filter((p) => p.connected) : players);
   party.cur = {
     gameName: game.name,
-    mainClip: clips[0],
-    impClip: pick(clips.slice(1)),
+    mainClip: shaped(clips[0]),
+    impClip: shaped(pick(clips.slice(1))),
     imposterKey: imposter.key,
     imposterId: imposter.id,
     imposterName: imposter.name,
