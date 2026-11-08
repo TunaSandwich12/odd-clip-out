@@ -1,5 +1,5 @@
 {
-  "rounds": 5,
+  "rounds": 15,
   "games": [
     {
       "name": "Game 1",
@@ -44,8 +44,8 @@
     {
       "name": "Game 6",
       "clips": [
-        "https://www.youtube.com/watch?v=X1NzxS4T4wc",
-        "https://www.youtube.com/watch?v=ZIQiiG6i09A"
+        "clips/ssstik-io-1794095471170-c09f32.mp4",
+        "clips/ssstik-io-1794095525879-b43368.mp4"
       ],
       "note": "Trampoline fail / cat vs cucumber"
     },
@@ -68,16 +68,16 @@
     {
       "name": "Game 9",
       "clips": [
-        "https://www.youtube.com/watch?v=aW4rtQnapWA",
-        "https://www.youtube.com/watch?v=0Bmhjf0rKe8"
+        "clips/ssstik-io-1794095609280-c86c4e.mp4",
+        "clips/ssstik-io-1794095687759-48d170.mp4"
       ],
       "note": "Minecraft boat clutch / Surprised Kitty"
     },
     {
       "name": "Game 10",
       "clips": [
-        "https://www.youtube.com/watch?v=rkSYJC2kO2o",
-        "https://www.youtube.com/watch?v=mahf5fDtGXo"
+        "clips/ssstik-io-1794095916554-4f9e5f.mp4",
+        "clips/ssstik-io-1794096181690-de2fee.mp4"
       ],
       "note": "Dog reacts to magic / slow-mo water balloon"
     },
